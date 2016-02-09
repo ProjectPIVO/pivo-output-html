@@ -1,0 +1,25 @@
+Basic info:<br />
+<ul>
+<#BEGIN SUMMARY#>
+	<li><#VALUE KEY#>: <#VALUE CONTENT#></li>
+<#END SUMMARY#>
+</ul>
+
+<table style="text-align: center; width: 50%; margin: auto;">
+	<thead>
+		<tr>
+			<td>% time</td>
+			<td>Total time</td>
+			<td>Function name</td>
+		</tr>
+	</thead>
+	<tbody>
+<#BEGIN FLAT_VIEW_ROWS#>
+	<tr>
+		<td><#VALUE PCT_TIME#></td>
+		<td><#VALUE TOTAL_TIME#></td>
+		<td><#VALUE FUNCTION_NAME#></td>
+	</tr>
+<#END FLAT_VIEW_ROWS#>
+	</tbody>
+</table>

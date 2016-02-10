@@ -53,6 +53,8 @@ typedef std::list<PHToken*> PHTokenList;
 
 #include "BufferedReader.h"
 
+#include "NormalizedData.h"
+
 class HtmlTemplateWorker
 {
     public:
@@ -62,9 +64,14 @@ class HtmlTemplateWorker
         // Creates template from predefined path
         bool CreateTemplate();
 
+        void FillTemplate(NormalizedData* data);
+
     protected:
         // Parses input template file and puts tokens to worker list (m_tokens)
         bool ParseTemplateFile(std::string filePath);
+
+        std::string GetSummaryValue(const char* identifier);
+        std::string GetFlatProfileValue(FlatProfileRecord* rec, const char* identifier);
 
         // Retrieve next token from currently read file
         PHToken* NextToken();
@@ -72,6 +79,7 @@ class HtmlTemplateWorker
     private:
         PHTokenList m_tokens;
         BufferedReader* m_fileReader;
+        NormalizedData* m_data;
 };
 
 #endif

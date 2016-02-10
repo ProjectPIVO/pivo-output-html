@@ -30,4 +30,6 @@ void HtmlVisualizer::ProcessData(NormalizedData* data)
         LogFunc(LOG_ERROR, "Could not create template subsystem");
         return;
     }
+
+    m_worker->FillTemplate(data);
 }

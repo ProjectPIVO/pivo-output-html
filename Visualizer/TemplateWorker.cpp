@@ -1,4 +1,5 @@
 #include "General.h"
+#include "FlatProfileStructs.h"
 #include "TemplateWorker.h"
 #include "HtmlOutputModule.h"
 #include "Log.h"
@@ -233,4 +234,75 @@ PHToken* HtmlTemplateWorker::NextToken()
     }
 
     return tok;
+}
+
+void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
+{
+    // TODO: real output file
+    FILE* outfile = fopen("index.html", "w");
+
+    m_data = data;
+
+    PHToken* tok, *bltok;
+    PHTokenBlockType blocktype;
+
+    for (std::list<PHToken*>::iterator itr = m_tokens.begin(); itr != m_tokens.end(); ++itr)
+    {
+        tok = *itr;
+
+        if (tok->tokenType == PHTT_TEXT)
+        {
+            fwrite(tok->textContent.c_str(), sizeof(char), tok->textContent.length(), outfile);
+        }
+        else if (tok->tokenType == PHTT_BLOCK)
+        {
+            blocktype = tok->blockType;
+
+            if (blocktype == PHBT_FLAT_PROFILE)
+            {
+                for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+                {
+                    for (std::list<PHToken*>::iterator iter = tok->tokenContent.begin(); iter != tok->tokenContent.end(); ++iter)
+                    {
+                        bltok = *iter;
+
+                        if (bltok->tokenType == PHTT_TEXT)
+                        {
+                            fwrite(bltok->textContent.c_str(), sizeof(char), bltok->textContent.length(), outfile);
+                        }
+                        else if (bltok->tokenType == PHTT_VALUE)
+                        {
+                            std::string val = GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str());
+                            fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fclose(outfile);
+}
+
+std::string HtmlTemplateWorker::GetSummaryValue(const char* identifier)
+{
+    return "";
+}
+
+std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, const char* identifier)
+{
+    if (strcmp(identifier, "PCT_TIME") == 0)
+    {
+        return std::to_string(rec->timeTotalPct);
+    }
+    else if (strcmp(identifier, "TOTAL_TIME") == 0)
+    {
+        return std::to_string(rec->timeTotal);
+    }
+    else if (strcmp(identifier, "FUNCTION_NAME") == 0)
+    {
+        return m_data->functionTable[rec->functionId].name;
+    }
+
+    return "<Unknown>";
 }

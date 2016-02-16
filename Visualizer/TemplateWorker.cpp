@@ -284,6 +284,41 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
     fclose(outfile);
 }
 
+std::string HtmlTemplateWorker::EscapeHTML(const char* src)
+{
+    int len = strlen(src);
+
+    std::string out;
+    out.reserve(len);
+
+    for (int i = 0; i < len; i++)
+    {
+        switch (src[i])
+        {
+            case '&':
+                out += "&amp;";
+                break;
+            case '<':
+                out += "&lt;";
+                break;
+            case '>':
+                out += "&gt;";
+                break;
+            case '\'':
+                out += "&apos;";
+                break;
+            case '\"':
+                out += "&quot;";
+                break;
+            default:
+                out += src[i];
+                break;
+        }
+    }
+
+    return out;
+}
+
 std::string HtmlTemplateWorker::GetSummaryValue(const char* identifier)
 {
     return "";
@@ -301,8 +336,8 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     }
     else if (strcmp(identifier, "FUNCTION_NAME") == 0)
     {
-        return m_data->functionTable[rec->functionId].name;
+        return EscapeHTML(m_data->functionTable[rec->functionId].name.c_str());
     }
 
-    return "<Unknown>";
+    return "&lt;Unknown&gt;";
 }

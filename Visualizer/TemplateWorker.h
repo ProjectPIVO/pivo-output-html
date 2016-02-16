@@ -70,8 +70,12 @@ class HtmlTemplateWorker
         // Parses input template file and puts tokens to worker list (m_tokens)
         bool ParseTemplateFile(std::string filePath);
 
+        // retrieves value from summary value map
         std::string GetSummaryValue(const char* identifier);
+        // retrieves value from flat profile row by identifier
         std::string GetFlatProfileValue(FlatProfileRecord* rec, const char* identifier);
+        // escapes string for output to HTML
+        std::string EscapeHTML(const char* src);
 
         // Retrieve next token from currently read file
         PHToken* NextToken();

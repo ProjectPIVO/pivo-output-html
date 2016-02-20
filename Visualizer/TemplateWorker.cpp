@@ -328,7 +328,7 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
 {
     if (strcmp(identifier, "PCT_TIME") == 0)
     {
-        return std::to_string(rec->timeTotalPct);
+        return std::to_string(rec->timeTotalPct*100.0);
     }
     else if (strcmp(identifier, "TOTAL_TIME") == 0)
     {
@@ -337,6 +337,10 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     else if (strcmp(identifier, "FUNCTION_NAME") == 0)
     {
         return EscapeHTML(m_data->functionTable[rec->functionId].name.c_str());
+    }
+    else if (strcmp(identifier, "FUNCTION_TYPE") == 0)
+    {
+        return std::string({ m_data->functionTable[rec->functionId].functionType });
     }
 
     return "&lt;Unknown&gt;";

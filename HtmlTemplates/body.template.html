@@ -5,7 +5,7 @@ Basic info:<br />
 <#END SUMMARY#>
 </ul>
 
-<table style="text-align: center; width: 50%; margin: auto;">
+<table style="width: 100%;">
 	<thead>
 		<tr>
 			<td>% time</td>
@@ -18,7 +18,7 @@ Basic info:<br />
 	<tr>
 		<td><#VALUE PCT_TIME#></td>
 		<td><#VALUE TOTAL_TIME#></td>
-		<td><#VALUE FUNCTION_NAME#></td>
+		<td class="tdparent" style="width: 100%"><div class="tdfulltop"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
 	</tr>
 <#END FLAT_VIEW_ROWS#>
 	</tbody>

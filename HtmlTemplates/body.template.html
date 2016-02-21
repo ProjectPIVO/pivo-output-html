@@ -5,12 +5,13 @@ Basic info:<br />
 <#END SUMMARY#>
 </ul>
 
-<table style="width: 100%;">
+<table class="flatview">
 	<thead>
 		<tr>
-			<td>% time</td>
-			<td>Total time</td>
-			<td>Function name</td>
+			<th>%&nbsp;time</th>
+			<th>Total&nbsp;time</th>
+			<th>Call&nbsp;count</th>
+			<th>Function&nbsp;name</th>
 		</tr>
 	</thead>
 	<tbody>
@@ -18,7 +19,8 @@ Basic info:<br />
 	<tr>
 		<td><#VALUE PCT_TIME#></td>
 		<td><#VALUE TOTAL_TIME#></td>
-		<td class="tdparent" style="width: 100%"><div class="tdfulltop"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
+		<td><#VALUE CALL_COUNT#></td>
+		<td class="nametd"><div class="tdfulltop padded"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
 	</tr>
 <#END FLAT_VIEW_ROWS#>
 	</tbody>

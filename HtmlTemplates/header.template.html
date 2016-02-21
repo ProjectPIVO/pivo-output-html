@@ -6,12 +6,50 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
 	<style>
-		body { font-size: 8pt; }
-		.tdparent { position: relative; }
-		.tdfill { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
-		.tdfulltop { position: absolute; left: 0; top: 0; bottom: 0; right: 0; z-index: 2; }
+		body, table
+		{
+			font-size: 10pt;
+			font-family: Courier New;
+		}
+
+		.tdfill
+		{
+			position: absolute; left: 0; top: 0; bottom: 0;
+			z-index: 1;
+		}
+		.tdfulltop
+		{
+			position: absolute; left: 0; top: 0; bottom: 0; right: 0;
+			z-index: 2;
+		}
+		.tdfulltop.padded
+		{
+			padding: 0.45em;
+		}
+
 		.func_bg_t { background: #99FF99; }
 		.func_bg_x { background: #FF9999; }
+		
+		table.flatview
+		{
+			width: 100%;
+		}
+		table.flatview td
+		{
+			padding: 0.5em;
+			text-align: right;
+		}
+		table.flatview th
+		{
+			padding: 0.5em;
+			text-align: left;
+		}
+		table.flatview td.nametd
+		{
+			position: relative;
+			width: 100%;
+			text-align: left;
+		}
 	</style>
 </head>
 

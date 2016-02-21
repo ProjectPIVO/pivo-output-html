@@ -4,6 +4,9 @@
 #include "HtmlOutputModule.h"
 #include "Log.h"
 
+#include <sstream>
+#include <iomanip>
+
 HtmlTemplateWorker::HtmlTemplateWorker()
 {
     m_fileReader = nullptr;
@@ -328,11 +331,19 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
 {
     if (strcmp(identifier, "PCT_TIME") == 0)
     {
-        return std::to_string(rec->timeTotalPct*100.0);
+        std::ostringstream out;
+        out << std::setprecision(2) << std::fixed << rec->timeTotalPct*100.0;
+        return out.str();
     }
     else if (strcmp(identifier, "TOTAL_TIME") == 0)
     {
-        return std::to_string(rec->timeTotal);
+        std::ostringstream out;
+        out << std::setprecision(2) << std::fixed << rec->timeTotal;
+        return out.str();
+    }
+    else if (strcmp(identifier, "CALL_COUNT") == 0)
+    {
+        return std::to_string(rec->callCount);
     }
     else if (strcmp(identifier, "FUNCTION_NAME") == 0)
     {
@@ -340,7 +351,7 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     }
     else if (strcmp(identifier, "FUNCTION_TYPE") == 0)
     {
-        return std::string({ m_data->functionTable[rec->functionId].functionType });
+        return std::string({ (char) m_data->functionTable[rec->functionId].functionType });
     }
 
     return "&lt;Unknown&gt;";

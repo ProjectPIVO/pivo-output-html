@@ -1,5 +1,6 @@
 #include "General.h"
 #include "FlatProfileStructs.h"
+#include "CallGraphStructs.h"
 #include "TemplateWorker.h"
 #include "HtmlOutputModule.h"
 #include "Log.h"
@@ -217,6 +218,8 @@ PHToken* HtmlTemplateWorker::NextToken()
                 tok->blockType = PHBT_SUMMARY;
             else if (tokenidentifier == "FLAT_VIEW_ROWS")
                 tok->blockType = PHBT_FLAT_PROFILE;
+            else if (tokenidentifier == "CALL_GRAPH_DATA")
+                tok->blockType = PHBT_CALL_GRAPH;
             else
                 tok->blockType = MAX_PHBT;
         }
@@ -277,6 +280,29 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
                         {
                             std::string val = GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str());
                             fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                        }
+                    }
+                }
+            }
+            else if (blocktype == PHBT_CALL_GRAPH)
+            {
+                for (CallGraphMap::iterator cgitr = m_data->callGraph.begin(); cgitr != m_data->callGraph.end(); ++cgitr)
+                {
+                    for (std::map<uint32_t, uint64_t>::iterator cgvitr = cgitr->second.begin(); cgvitr != cgitr->second.end(); ++cgvitr)
+                    {
+                        for (std::list<PHToken*>::iterator iter = tok->tokenContent.begin(); iter != tok->tokenContent.end(); ++iter)
+                        {
+                            bltok = *iter;
+
+                            if (bltok->tokenType == PHTT_TEXT)
+                            {
+                                fwrite(bltok->textContent.c_str(), sizeof(char), bltok->textContent.length(), outfile);
+                            }
+                            else if (bltok->tokenType == PHTT_VALUE)
+                            {
+                                std::string val = GetCallGraphValue(cgitr->first, cgvitr->first, bltok->textContent.c_str());
+                                fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                            }
                         }
                     }
                 }
@@ -352,6 +378,32 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     else if (strcmp(identifier, "FUNCTION_TYPE") == 0)
     {
         return std::string({ (char) m_data->functionTable[rec->functionId].functionType });
+    }
+
+    return "&lt;Unknown&gt;";
+}
+
+std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier)
+{
+    if (strcmp(identifier, "CALLER_ID") == 0)
+    {
+        return std::to_string(caller_id);
+    }
+    else if (strcmp(identifier, "CALLEE_ID") == 0)
+    {
+        return std::to_string(callee_id);
+    }
+    else if (strcmp(identifier, "CALLER_NAME") == 0)
+    {
+        return EscapeHTML(m_data->functionTable[caller_id].name.c_str());
+    }
+    else if (strcmp(identifier, "CALLEE_NAME") == 0)
+    {
+        return EscapeHTML(m_data->functionTable[callee_id].name.c_str());
+    }
+    else if (strcmp(identifier, "CALL_COUNT") == 0)
+    {
+        return std::to_string(m_data->callGraph[caller_id][callee_id]);
     }
 
     return "&lt;Unknown&gt;";

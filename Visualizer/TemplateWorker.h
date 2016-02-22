@@ -23,6 +23,7 @@ enum PHTokenBlockType
 {
     PHBT_SUMMARY = 0,               // metadata, information about files, ..
     PHBT_FLAT_PROFILE = 1,          // flat view
+    PHBT_CALL_GRAPH = 2,            // call graph data
     MAX_PHBT
 };
 
@@ -74,6 +75,8 @@ class HtmlTemplateWorker
         std::string GetSummaryValue(const char* identifier);
         // retrieves value from flat profile row by identifier
         std::string GetFlatProfileValue(FlatProfileRecord* rec, const char* identifier);
+        // retrieves call graph value
+        std::string GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier);
         // escapes string for output to HTML
         std::string EscapeHTML(const char* src);
 

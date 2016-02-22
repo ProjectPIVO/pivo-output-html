@@ -1,3 +1,46 @@
+<script>
+
+var nodeInfo = {
+};
+
+var callGraphData = [
+];
+
+function pivo_addCallGraphNode(id, name, callCount)
+{
+	if (typeof callCount === 'undefined')
+		callCount = 0;
+
+	if (typeof nodeInfo[id] === 'undefined')
+		nodeInfo[id] = { 'name': name, 'callCount': callCount };
+	else
+		nodeInfo[id].callCount += callCount;
+}
+
+function pivo_addCallGraphEdge(source, dest, callCount)
+{
+	callGraphData.push({
+		'caller': source,
+		'callee': dest,
+		'callCount': callCount
+	});
+}
+
+function pivo_initCallGraphData()
+{
+	<#BEGIN CALL_GRAPH_DATA#>
+	pivo_addCallGraphNode(<#VALUE CALLER_ID#>, '<#VALUE CALLER_NAME#>', 0);
+	pivo_addCallGraphNode(<#VALUE CALLEE_ID#>, '<#VALUE CALLEE_NAME#>', <#VALUE CALL_COUNT#>);
+	pivo_addCallGraphEdge(<#VALUE CALLER_ID#>, <#VALUE CALLEE_ID#>, <#VALUE CALL_COUNT#>);
+	<#END CALL_GRAPH_DATA#>
+}
+
+document.addEventListener("DOMContentLoaded", function(event) {
+	pivo_initCallGraphData();
+});
+
+</script>
+
 Basic info:<br />
 <ul>
 <#BEGIN SUMMARY#>

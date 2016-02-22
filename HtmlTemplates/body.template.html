@@ -1,3 +1,5 @@
+<canvas id="callgraph_canvas" width="1024" height="768" />
+
 <script>
 
 var nodeInfo = {
@@ -37,6 +39,20 @@ function pivo_initCallGraphData()
 
 document.addEventListener("DOMContentLoaded", function(event) {
 	pivo_initCallGraphData();
+	
+	var graph = new Springy.Graph();
+
+	for (var i in nodeInfo)
+	{
+		nodeInfo[i].node = graph.newNode({ label: nodeInfo[i].name });
+	}
+	
+	for (var i in callGraphData)
+	{
+		graph.newEdge(nodeInfo[callGraphData[i].caller].node, nodeInfo[callGraphData[i].callee].node);
+	}
+	
+	$('#callgraph_canvas').springy({ graph: graph });
 });
 
 </script>

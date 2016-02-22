@@ -405,6 +405,54 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
     {
         return std::to_string(m_data->callGraph[caller_id][callee_id]);
     }
+    else if (strcmp(identifier, "CALLER_FLAT_TIME_PCT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != caller_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalPct*100.0;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLEE_FLAT_TIME_PCT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != callee_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalPct*100.0;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLER_FLAT_TIME") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != caller_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotal;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLEE_FLAT_TIME") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != callee_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotal;
+            return out.str();
+        }
+    }
 
     return "&lt;Unknown&gt;";
 }

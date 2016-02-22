@@ -8,15 +8,10 @@ var nodeInfo = {
 var callGraphData = [
 ];
 
-function pivo_addCallGraphNode(id, name, callCount)
+function pivo_addCallGraphNode(id, name, timeTotal, timeTotalPct)
 {
-	if (typeof callCount === 'undefined')
-		callCount = 0;
-
 	if (typeof nodeInfo[id] === 'undefined')
-		nodeInfo[id] = { 'name': name, 'callCount': callCount };
-	else
-		nodeInfo[id].callCount += callCount;
+		nodeInfo[id] = { 'name': name, 'callCount': 0, 'timeTotal': timeTotal, 'timeTotalPct': timeTotalPct, 'callerCredit': 0 };
 }
 
 function pivo_addCallGraphEdge(source, dest, callCount)
@@ -26,13 +21,16 @@ function pivo_addCallGraphEdge(source, dest, callCount)
 		'callee': dest,
 		'callCount': callCount
 	});
+
+	nodeInfo[source].callerCredit += callCount;
+	nodeInfo[dest].callCount += callCount;
 }
 
 function pivo_initCallGraphData()
 {
 	<#BEGIN CALL_GRAPH_DATA#>
-	pivo_addCallGraphNode(<#VALUE CALLER_ID#>, '<#VALUE CALLER_NAME#>', 0);
-	pivo_addCallGraphNode(<#VALUE CALLEE_ID#>, '<#VALUE CALLEE_NAME#>', <#VALUE CALL_COUNT#>);
+	pivo_addCallGraphNode(<#VALUE CALLER_ID#>, '<#VALUE CALLER_NAME#>', <#VALUE CALLER_FLAT_TIME#>, <#VALUE CALLER_FLAT_TIME_PCT#>);
+	pivo_addCallGraphNode(<#VALUE CALLEE_ID#>, '<#VALUE CALLEE_NAME#>', <#VALUE CALLEE_FLAT_TIME#>, <#VALUE CALLEE_FLAT_TIME_PCT#>);
 	pivo_addCallGraphEdge(<#VALUE CALLER_ID#>, <#VALUE CALLEE_ID#>, <#VALUE CALL_COUNT#>);
 	<#END CALL_GRAPH_DATA#>
 }
@@ -44,11 +42,17 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
 	for (var i in nodeInfo)
 	{
+		if (nodeInfo[i].callerCredit < 1000 && nodeInfo[i].callCount < 1000)
+			continue;
 		nodeInfo[i].node = graph.newNode({ label: nodeInfo[i].name });
 	}
 	
 	for (var i in callGraphData)
 	{
+		if (typeof nodeInfo[callGraphData[i].caller] === 'undefined' || typeof nodeInfo[callGraphData[i].callee] === 'undefined' ||
+			typeof nodeInfo[callGraphData[i].caller].node === 'undefined' || typeof nodeInfo[callGraphData[i].callee].node)
+			continue;
+
 		graph.newEdge(nodeInfo[callGraphData[i].caller].node, nodeInfo[callGraphData[i].callee].node);
 	}
 	

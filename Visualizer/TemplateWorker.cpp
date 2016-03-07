@@ -367,6 +367,18 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
         out << std::setprecision(2) << std::fixed << rec->timeTotal;
         return out.str();
     }
+    else if (strcmp(identifier, "PCT_INCLUSIVE_TIME") == 0)
+    {
+        std::ostringstream out;
+        out << std::setprecision(2) << std::fixed << rec->timeTotalInclusivePct*100.0;
+        return out.str();
+    }
+    else if (strcmp(identifier, "TOTAL_INCLUSIVE_TIME") == 0)
+    {
+        std::ostringstream out;
+        out << std::setprecision(2) << std::fixed << rec->timeTotalInclusive;
+        return out.str();
+    }
     else if (strcmp(identifier, "CALL_COUNT") == 0)
     {
         return std::to_string(rec->callCount);

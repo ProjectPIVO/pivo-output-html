@@ -1,4 +1,5 @@
-<canvas id="callgraph_canvas" width="1024" height="768" />
+<canvas id="callgraph_canvas" width="1024" height="768">
+</canvas>
 
 <script>
 
@@ -73,6 +74,8 @@ Basic info:<br />
 		<tr>
 			<th>%&nbsp;time</th>
 			<th>Total&nbsp;time</th>
+			<th>%&nbsp;inclusive time</th>
+			<th>Total&nbsp;inclusive time</th>
 			<th>Call&nbsp;count</th>
 			<th>Function&nbsp;name</th>
 		</tr>
@@ -82,6 +85,8 @@ Basic info:<br />
 	<tr>
 		<td><#VALUE PCT_TIME#></td>
 		<td><#VALUE TOTAL_TIME#></td>
+		<td><#VALUE PCT_INCLUSIVE_TIME#></td>
+                <td><#VALUE TOTAL_INCLUSIVE_TIME#></td>
 		<td><#VALUE CALL_COUNT#></td>
 		<td class="nametd"><div class="tdfulltop padded"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
 	</tr>

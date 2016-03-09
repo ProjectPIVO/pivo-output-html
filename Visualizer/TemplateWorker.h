@@ -27,6 +27,14 @@ enum PHTokenBlockType
     MAX_PHBT
 };
 
+enum OutputEscapeType
+{
+    ESCTYPE_NONE = 0,               // do not escape
+    ESCTYPE_HTML = 1,               // HTML string escaping (<>'"&)
+    ESCTYPE_JS = 2,                 // Javascript string escaping (just ')
+    MAX_ESCTYPE
+};
+
 // Structure of template "token"; PH stands for PIVO HTML
 struct PHToken
 {
@@ -34,6 +42,9 @@ struct PHToken
     PHTokenType tokenType;
     // if token is of type "block", specify block type
     PHTokenBlockType blockType;
+
+    // additional parameter for specific token
+    int32_t tokenParameter;
 
     // text or identifier field (text and value types)
     std::string textContent;
@@ -79,6 +90,10 @@ class HtmlTemplateWorker
         std::string GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier);
         // escapes string for output to HTML
         std::string EscapeHTML(const char* src);
+        // escaped string for output to Javascript
+        std::string EscapeJS(const char* src);
+        // escapes string using supplied escape type
+        std::string EscapeStringByType(const char* src, OutputEscapeType etype);
 
         // Retrieve next token from currently read file
         PHToken* NextToken();

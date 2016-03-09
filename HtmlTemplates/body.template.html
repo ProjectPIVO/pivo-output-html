@@ -1,5 +1,5 @@
-<canvas id="callgraph_canvas" width="1024" height="768">
-</canvas>
+<div id="callgraph_canvas">
+</div>
 
 <script>
 
@@ -12,52 +12,86 @@ var callGraphData = [
 function pivo_addCallGraphNode(id, name, timeTotal, timeTotalPct)
 {
 	if (typeof nodeInfo[id] === 'undefined')
-		nodeInfo[id] = { 'name': name, 'callCount': 0, 'timeTotal': timeTotal, 'timeTotalPct': timeTotalPct, 'callerCredit': 0 };
+		nodeInfo[id] = { 'id': id, 'label': name, 'profTimeTotal': timeTotal, 'profTimePct': timeTotalPct };
 }
 
 function pivo_addCallGraphEdge(source, dest, callCount)
 {
-	callGraphData.push({
-		'caller': source,
-		'callee': dest,
-		'callCount': callCount
-	});
-
-	nodeInfo[source].callerCredit += callCount;
-	nodeInfo[dest].callCount += callCount;
+	callGraphData.push({ 'from': source, 'to': dest, 'arrows': 'to' });
 }
 
 function pivo_initCallGraphData()
 {
 	<#BEGIN CALL_GRAPH_DATA#>
-	pivo_addCallGraphNode(<#VALUE CALLER_ID#>, '<#VALUE CALLER_NAME#>', <#VALUE CALLER_FLAT_TIME#>, <#VALUE CALLER_FLAT_TIME_PCT#>);
-	pivo_addCallGraphNode(<#VALUE CALLEE_ID#>, '<#VALUE CALLEE_NAME#>', <#VALUE CALLEE_FLAT_TIME#>, <#VALUE CALLEE_FLAT_TIME_PCT#>);
-	pivo_addCallGraphEdge(<#VALUE CALLER_ID#>, <#VALUE CALLEE_ID#>, <#VALUE CALL_COUNT#>);
+	if (<#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#> > 1.0)
+	{
+		pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>);
+		if (<#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#> > 1.0)
+		{
+			pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>);
+			pivo_addCallGraphEdge(<#RAWVALUE CALLER_ID#>, <#RAWVALUE CALLEE_ID#>, <#RAWVALUE CALL_COUNT#>);
+		}
+	}
 	<#END CALL_GRAPH_DATA#>
+}
+
+function pivo_getHexColor(r, g, b)
+{
+	var color = '#';
+
+	color += ('00' + Number(r).toString(16)).slice(-2)
+		+('00' + Number(g).toString(16)).slice(-2)
+		+('00' + Number(b).toString(16)).slice(-2);
+	
+	return color;
 }
 
 document.addEventListener("DOMContentLoaded", function(event) {
 	pivo_initCallGraphData();
-	
-	var graph = new Springy.Graph();
+
+	var rootNodeCandidates = [];
 
 	for (var i in nodeInfo)
 	{
-		if (nodeInfo[i].callerCredit < 1000 && nodeInfo[i].callCount < 1000)
-			continue;
-		nodeInfo[i].node = graph.newNode({ label: nodeInfo[i].name });
+		var r = Math.ceil(255 * nodeInfo[i].profTimePct / 100.0);
+		var g = Math.floor(255 * (1 - (nodeInfo[i].profTimePct / 100.0)));
+		var b = 0;
+		nodeInfo[i].color = pivo_getHexColor(r,g,b);
 	}
-	
-	for (var i in callGraphData)
-	{
-		if (typeof nodeInfo[callGraphData[i].caller] === 'undefined' || typeof nodeInfo[callGraphData[i].callee] === 'undefined' ||
-			typeof nodeInfo[callGraphData[i].caller].node === 'undefined' || typeof nodeInfo[callGraphData[i].callee].node)
-			continue;
 
-		graph.newEdge(nodeInfo[callGraphData[i].caller].node, nodeInfo[callGraphData[i].callee].node);
-	}
+	var container = document.getElementById('callgraph_canvas');
+	var convNodes = Object.keys(nodeInfo).map(function (key) {return nodeInfo[key]});
+	var data = { nodes: convNodes, edges: callGraphData };
 	
-	$('#callgraph_canvas').springy({ graph: graph });
+	var options = {
+		layout: {
+			randomSeed: 2,
+//			hierarchical: {
+//				direction: 'UD',
+//				sortMethod: 'directed'
+//				nodeSpacing: 200
+//			}
+		},
+		nodes: {
+			shape: 'box',
+			size: 8,
+			font: {
+				size: 10,
+				color: '#000000',
+				background: '#FFFFFF'
+			},
+			borderWidth: 2
+		},
+		physics: {
+			enabled: false
+		},
+		edges: {
+			width: 2,
+			smooth: {type:'cubicBezier'}
+		}
+	};
+
+	var network = new vis.Network(container, data, options);
 });
 
 </script>

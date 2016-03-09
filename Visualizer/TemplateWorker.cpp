@@ -223,10 +223,25 @@ PHToken* HtmlTemplateWorker::NextToken()
             else
                 tok->blockType = MAX_PHBT;
         }
-        // recognize value tag
+        // recognize value tag - HTML escaped
         else if (tokenname == "VALUE")
         {
             tok->tokenType = PHTT_VALUE;
+            tok->tokenParameter = ESCTYPE_HTML;
+            tok->textContent = tokenidentifier.c_str();
+        }
+        // recognize value tag - Javascript escaped
+        else if (tokenname == "JSVALUE")
+        {
+            tok->tokenType = PHTT_VALUE;
+            tok->tokenParameter = ESCTYPE_JS;
+            tok->textContent = tokenidentifier.c_str();
+        }
+        // recognize value tag - without escaping
+        else if (tokenname == "RAWVALUE")
+        {
+            tok->tokenType = PHTT_VALUE;
+            tok->tokenParameter = ESCTYPE_NONE;
             tok->textContent = tokenidentifier.c_str();
         }
         // consider anything else an error
@@ -278,7 +293,7 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
                         }
                         else if (bltok->tokenType == PHTT_VALUE)
                         {
-                            std::string val = GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str());
+                            std::string val = EscapeStringByType(GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
                             fwrite(val.c_str(), sizeof(char), val.length(), outfile);
                         }
                     }
@@ -300,7 +315,7 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
                             }
                             else if (bltok->tokenType == PHTT_VALUE)
                             {
-                                std::string val = GetCallGraphValue(cgitr->first, cgvitr->first, bltok->textContent.c_str());
+                                std::string val = EscapeStringByType(GetCallGraphValue(cgitr->first, cgvitr->first, bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
                                 fwrite(val.c_str(), sizeof(char), val.length(), outfile);
                             }
                         }
@@ -348,6 +363,43 @@ std::string HtmlTemplateWorker::EscapeHTML(const char* src)
     return out;
 }
 
+std::string HtmlTemplateWorker::EscapeJS(const char* src)
+{
+    int len = strlen(src);
+
+    std::string out;
+    out.reserve(len);
+
+    for (int i = 0; i < len; i++)
+    {
+        switch (src[i])
+        {
+            case '\'':
+                out += "&apos;";
+                break;
+            default:
+                out += src[i];
+                break;
+        }
+    }
+
+    return out;
+}
+
+std::string HtmlTemplateWorker::EscapeStringByType(const char* src, OutputEscapeType etype)
+{
+    switch (etype)
+    {
+        case ESCTYPE_HTML:
+            return EscapeHTML(src);
+        case ESCTYPE_JS:
+            return EscapeJS(src);
+        case ESCTYPE_NONE:
+        default:
+            return std::string(src);
+    }
+}
+
 std::string HtmlTemplateWorker::GetSummaryValue(const char* identifier)
 {
     return "";
@@ -385,14 +437,14 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     }
     else if (strcmp(identifier, "FUNCTION_NAME") == 0)
     {
-        return EscapeHTML(m_data->functionTable[rec->functionId].name.c_str());
+        return m_data->functionTable[rec->functionId].name.c_str();
     }
     else if (strcmp(identifier, "FUNCTION_TYPE") == 0)
     {
         return std::string({ (char) m_data->functionTable[rec->functionId].functionType });
     }
 
-    return "&lt;Unknown&gt;";
+    return "<Unknown>";
 }
 
 std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier)
@@ -407,11 +459,11 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
     }
     else if (strcmp(identifier, "CALLER_NAME") == 0)
     {
-        return EscapeHTML(m_data->functionTable[caller_id].name.c_str());
+        return m_data->functionTable[caller_id].name.c_str();
     }
     else if (strcmp(identifier, "CALLEE_NAME") == 0)
     {
-        return EscapeHTML(m_data->functionTable[callee_id].name.c_str());
+        return m_data->functionTable[callee_id].name.c_str();
     }
     else if (strcmp(identifier, "CALL_COUNT") == 0)
     {
@@ -465,6 +517,54 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
             return out.str();
         }
     }
+    else if (strcmp(identifier, "CALLER_FLAT_INCLUSIVE_TIME_PCT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != caller_id)
+                continue;
 
-    return "&lt;Unknown&gt;";
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusivePct*100.0;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLEE_FLAT_INCLUSIVE_TIME_PCT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != callee_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusivePct*100.0;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLER_FLAT_INCLUSIVE_TIME") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != caller_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusive;
+            return out.str();
+        }
+    }
+    else if (strcmp(identifier, "CALLEE_FLAT_INCLUSIVE_TIME") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != callee_id)
+                continue;
+
+            std::ostringstream out;
+            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusive;
+            return out.str();
+        }
+    }
+
+    return "<Unknown>";
 }

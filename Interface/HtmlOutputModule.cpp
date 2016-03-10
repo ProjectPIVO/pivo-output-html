@@ -28,6 +28,16 @@ HtmlOutputModule::~HtmlOutputModule()
     //
 }
 
+const char* HtmlOutputModule::ReportName()
+{
+    return "HTML File Output module";
+}
+
+const char* HtmlOutputModule::ReportVersion()
+{
+    return "0.1-dev";
+}
+
 void HtmlOutputModule::ReportFeatures(OMF_SET &set)
 {
     // nullify set

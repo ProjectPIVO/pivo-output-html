@@ -90,6 +90,8 @@ class HtmlTemplateWorker
         void FillFlatProfileBlock(FILE* outfile, PHToken* token);
         // fills call graph block
         void FillCallGraphBlock(FILE* outfile, PHToken* token);
+        // fills summary block
+        void FillSummaryBlock(FILE* outfile, PHToken* token);
 
         // writes text token contents to file
         void WriteTextContent(FILE* outfile, PHToken* token);

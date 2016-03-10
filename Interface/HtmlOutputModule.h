@@ -14,6 +14,8 @@ class HtmlOutputModule : public OutputModule
         HtmlOutputModule();
         ~HtmlOutputModule();
 
+        virtual const char* ReportName();
+        virtual const char* ReportVersion();
         virtual void ReportFeatures(OMF_SET &set);
 
         virtual void VisualizeData(NormalizedData* data);

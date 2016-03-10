@@ -355,6 +355,44 @@ void HtmlTemplateWorker::FillCallGraphBlock(FILE* outfile, PHToken* token)
     }
 }
 
+void HtmlTemplateWorker::FillSummaryBlock(FILE* outfile, PHToken* token)
+{
+    PHToken* bltok;
+    std::string val;
+
+    // go through all flat profile records...
+    for (std::map<std::string, std::string>::iterator sumitr = m_data->basicInfo.begin(); sumitr != m_data->basicInfo.end(); ++sumitr)
+    {
+        // and repeat token sequence for every flat profile record
+        for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
+        {
+            bltok = *iter;
+
+            switch (bltok->tokenType)
+            {
+                // text token (just copy contents)
+                case PHTT_TEXT:
+                    WriteTextContent(outfile, bltok);
+                    break;
+                // flat profile value
+                case PHTT_VALUE:
+                    if (bltok->textContent == "KEY")
+                        val = EscapeStringByType(sumitr->first.c_str(), (OutputEscapeType)bltok->tokenParameter);
+                    else if (bltok->textContent == "CONTENT")
+                        val = EscapeStringByType(sumitr->second.c_str(), (OutputEscapeType)bltok->tokenParameter);
+                    else
+                        val = EscapeStringByType("<Unknown>", (OutputEscapeType)bltok->tokenParameter);
+                    fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                    break;
+                // block - disallow nesting to this block type
+                case PHTT_BLOCK:
+                    LogFunc(LOG_ERROR, "No blocks could be nested into summary block!");
+                    break;
+            }
+        }
+    }
+}
+
 void HtmlTemplateWorker::WriteTextContent(FILE* outfile, PHToken* token)
 {
     fwrite(token->textContent.c_str(), sizeof(char), token->textContent.length(), outfile);
@@ -381,6 +419,10 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
             {
                 switch (tok->blockType)
                 {
+                    // summary (basic info)
+                    case PHBT_SUMMARY:
+                        FillSummaryBlock(outfile, tok);
+                        break;
                     // flat profile
                     case PHBT_FLAT_PROFILE:
                         FillFlatProfileBlock(outfile, tok);

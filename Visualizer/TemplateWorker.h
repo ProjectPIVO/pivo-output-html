@@ -1,6 +1,8 @@
 #ifndef PIVO_HTML_TEMPLATE_WORKER_H
 #define PIVO_HTML_TEMPLATE_WORKER_H
 
+#include <set>
+
 // sequence of characters, that starts recognized tag
 #define TAG_OPEN_SEQUENCE  "<#"
 // sequence of characters, that ends recognized tag
@@ -16,6 +18,8 @@ enum PHTokenType
     PHTT_BLOCK = 1,                 // contains list of PHTokens repeatedly inserted with different values (foreach)
     PHTT_ENDBLOCK = 2,              // just marker for parser to end filling block
     PHTT_VALUE = 3,                 // is replaced by variable value
+    PHTT_INCLUDE = 4,               // includes another file
+    PHTT_COPYFILE = 5,              // includes file in output path (by 1:1 copy)
     MAX_PHTT
 };
 
@@ -55,11 +59,7 @@ struct PHToken
 // base path for templates
 #define PIVO_HTML_TEMPLATE_PATH     "HtmlTemplates/"
 // header template file
-#define TEMPLATE_FILE_HEADER        PIVO_HTML_TEMPLATE_PATH "header.template.html"
-// body template file
-#define TEMPLATE_FILE_BODY          PIVO_HTML_TEMPLATE_PATH "body.template.html"
-// footer template file
-#define TEMPLATE_FILE_FOOTER        PIVO_HTML_TEMPLATE_PATH "footer.template.html"
+#define TEMPLATE_FILE_MAIN        "template.html"
 
 typedef std::list<PHToken*> PHTokenList;
 
@@ -76,11 +76,25 @@ class HtmlTemplateWorker
         // Creates template from predefined path
         bool CreateTemplate();
 
+        // fills template with supplied data
         void FillTemplate(NormalizedData* data);
 
     protected:
         // Parses input template file and puts tokens to worker list (m_tokens)
-        bool ParseTemplateFile(std::string filePath);
+        bool ParseTemplateFile(std::string filePath, PHTokenList &dest);
+
+        // fills opened file with parsed tokens
+        void FillTemplateFile(FILE* outfile, PHTokenList &tokenSource);
+
+        // fills flat profile block
+        void FillFlatProfileBlock(FILE* outfile, PHToken* token);
+        // fills call graph block
+        void FillCallGraphBlock(FILE* outfile, PHToken* token);
+
+        // writes text token contents to file
+        void WriteTextContent(FILE* outfile, PHToken* token);
+        // copies file from source to destination directory
+        void CopyFileToDst(const char* source);
 
         // retrieves value from summary value map
         std::string GetSummaryValue(const char* identifier);
@@ -102,6 +116,8 @@ class HtmlTemplateWorker
         PHTokenList m_tokens;
         BufferedReader* m_fileReader;
         NormalizedData* m_data;
+
+        std::set<std::string> m_filesToCopy;
 };
 
 #endif

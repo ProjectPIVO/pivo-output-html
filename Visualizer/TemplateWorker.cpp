@@ -7,6 +7,8 @@
 
 #include <sstream>
 #include <iomanip>
+#include <fstream>
+#include <stack>
 
 HtmlTemplateWorker::HtmlTemplateWorker()
 {
@@ -21,18 +23,18 @@ HtmlTemplateWorker::~HtmlTemplateWorker()
 bool HtmlTemplateWorker::CreateTemplate()
 {
     // load header, body and footer
-    // TODO: allow customizing
-    return ParseTemplateFile(TEMPLATE_FILE_HEADER)
-        && ParseTemplateFile(TEMPLATE_FILE_BODY)
-        && ParseTemplateFile(TEMPLATE_FILE_FOOTER);
+    // TODO: allow customizing?
+    return ParseTemplateFile(TEMPLATE_FILE_MAIN, m_tokens);
 }
 
-bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath)
+bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath, PHTokenList &dest)
 {
     // open file for reading
-    FILE* f = fopen(filePath.c_str(), "r");
+    FILE* f = fopen((std::string(PIVO_HTML_TEMPLATE_PATH) + filePath).c_str(), "r");
     if (!f)
         return false;
+
+    dest.clear();
 
     // create buffered reader
     m_fileReader = new BufferedReader(f);
@@ -40,18 +42,18 @@ bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath)
     PHToken* block = nullptr;
     PHToken* curr;
 
+    // token stack for block nesting
+    std::stack<PHToken*> blockStack;
+
     // retrieve tokens if available
     while ((curr = NextToken()) != nullptr)
     {
         // if beginning new block
         if (curr->tokenType == PHTT_BLOCK)
         {
-            // do not allow block nesting
+            // nested blocks - push onto stack
             if (block)
-            {
-                LogFunc(LOG_ERROR, "Nested blocks aren't allowed");
-                return false;
-            }
+                blockStack.push(block);
 
             // assign block to variable, and do not put the block into tokens list yet
             block = curr;
@@ -73,11 +75,23 @@ bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath)
                 return false;
             }
 
-            // put validated block to tokens list
-            m_tokens.push_back(block);
-
             // clear list and do not put this token to list
-            block = nullptr;
+            if (blockStack.empty())
+            {
+                // put validated block to tokens list
+                dest.push_back(block);
+
+                block = nullptr;
+            }
+            else
+            {
+                // put validated block to parent block token list
+                blockStack.top()->tokenContent.push_back(block);
+
+                // withdraw parent block from stack and continue parsing
+                block = blockStack.top();
+                blockStack.pop();
+            }
             continue;
         }
 
@@ -85,7 +99,7 @@ bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath)
         if (block)
             block->tokenContent.push_back(curr);
         else
-            m_tokens.push_back(curr);
+            dest.push_back(curr);
     }
 
     // cleanup
@@ -244,6 +258,20 @@ PHToken* HtmlTemplateWorker::NextToken()
             tok->tokenParameter = ESCTYPE_NONE;
             tok->textContent = tokenidentifier.c_str();
         }
+        // include another file here
+        else if (tokenname == "INCLUDE")
+        {
+            tok->tokenType = PHTT_INCLUDE;
+            tok->tokenParameter = 0;
+            tok->textContent = tokenidentifier.c_str();
+        }
+        // include another file in output directory
+        else if (tokenname == "COPYFILE")
+        {
+            tok->tokenType = PHTT_COPYFILE;
+            tok->tokenParameter = 0;
+            tok->textContent = tokenidentifier.c_str();
+        }
         // consider anything else an error
         else
         {
@@ -257,75 +285,178 @@ PHToken* HtmlTemplateWorker::NextToken()
     return tok;
 }
 
-void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
+void HtmlTemplateWorker::FillFlatProfileBlock(FILE* outfile, PHToken* token)
 {
-    // TODO: real output file
-    FILE* outfile = fopen("index.html", "w");
+    PHToken* bltok;
+    std::string val;
 
-    m_data = data;
-
-    PHToken* tok, *bltok;
-    PHTokenBlockType blocktype;
-
-    for (std::list<PHToken*>::iterator itr = m_tokens.begin(); itr != m_tokens.end(); ++itr)
+    // go through all flat profile records...
+    for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
     {
-        tok = *itr;
-
-        if (tok->tokenType == PHTT_TEXT)
+        // and repeat token sequence for every flat profile record
+        for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
         {
-            fwrite(tok->textContent.c_str(), sizeof(char), tok->textContent.length(), outfile);
-        }
-        else if (tok->tokenType == PHTT_BLOCK)
-        {
-            blocktype = tok->blockType;
+            bltok = *iter;
 
-            if (blocktype == PHBT_FLAT_PROFILE)
+            switch (bltok->tokenType)
             {
-                for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
-                {
-                    for (std::list<PHToken*>::iterator iter = tok->tokenContent.begin(); iter != tok->tokenContent.end(); ++iter)
-                    {
-                        bltok = *iter;
-
-                        if (bltok->tokenType == PHTT_TEXT)
-                        {
-                            fwrite(bltok->textContent.c_str(), sizeof(char), bltok->textContent.length(), outfile);
-                        }
-                        else if (bltok->tokenType == PHTT_VALUE)
-                        {
-                            std::string val = EscapeStringByType(GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
-                            fwrite(val.c_str(), sizeof(char), val.length(), outfile);
-                        }
-                    }
-                }
+                // text token (just copy contents)
+                case PHTT_TEXT:
+                    WriteTextContent(outfile, bltok);
+                    break;
+                // flat profile value
+                case PHTT_VALUE:
+                    val = EscapeStringByType(GetFlatProfileValue(&(*fpitr), bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
+                    fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                    break;
+                // block - disallow nesting to this block type
+                case PHTT_BLOCK:
+                    LogFunc(LOG_ERROR, "No blocks could be nested into flat profile block!");
+                    break;
             }
-            else if (blocktype == PHBT_CALL_GRAPH)
-            {
-                for (CallGraphMap::iterator cgitr = m_data->callGraph.begin(); cgitr != m_data->callGraph.end(); ++cgitr)
-                {
-                    for (std::map<uint32_t, uint64_t>::iterator cgvitr = cgitr->second.begin(); cgvitr != cgitr->second.end(); ++cgvitr)
-                    {
-                        for (std::list<PHToken*>::iterator iter = tok->tokenContent.begin(); iter != tok->tokenContent.end(); ++iter)
-                        {
-                            bltok = *iter;
+        }
+    }
+}
 
-                            if (bltok->tokenType == PHTT_TEXT)
-                            {
-                                fwrite(bltok->textContent.c_str(), sizeof(char), bltok->textContent.length(), outfile);
-                            }
-                            else if (bltok->tokenType == PHTT_VALUE)
-                            {
-                                std::string val = EscapeStringByType(GetCallGraphValue(cgitr->first, cgvitr->first, bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
-                                fwrite(val.c_str(), sizeof(char), val.length(), outfile);
-                            }
-                        }
-                    }
+void HtmlTemplateWorker::FillCallGraphBlock(FILE* outfile, PHToken* token)
+{
+    PHToken* bltok;
+    std::string val;
+
+    // go through every caller function
+    for (CallGraphMap::iterator cgitr = m_data->callGraph.begin(); cgitr != m_data->callGraph.end(); ++cgitr)
+    {
+        // and through every callee for that caller
+        for (std::map<uint32_t, uint64_t>::iterator cgvitr = cgitr->second.begin(); cgvitr != cgitr->second.end(); ++cgvitr)
+        {
+            // and repeat token sequence for each caller-callee pair
+            for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
+            {
+                bltok = *iter;
+
+                switch (bltok->tokenType)
+                {
+                    // text token (just copy contents)
+                    case PHTT_TEXT:
+                        WriteTextContent(outfile, bltok);
+                        break;
+                    // call graph value
+                    case PHTT_VALUE:
+                        val = EscapeStringByType(GetCallGraphValue(cgitr->first, cgvitr->first, bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
+                        fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                        break;
+                    // block - disallow nesting to this block type
+                    case PHTT_BLOCK:
+                        LogFunc(LOG_ERROR, "No blocks could be nested into callgraph block!");
+                        break;
                 }
             }
         }
     }
+}
+
+void HtmlTemplateWorker::WriteTextContent(FILE* outfile, PHToken* token)
+{
+    fwrite(token->textContent.c_str(), sizeof(char), token->textContent.length(), outfile);
+}
+
+void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSource)
+{
+    PHToken* tok;
+    PHTokenList tmpTokens;
+
+    // for each token in token source..
+    for (std::list<PHToken*>::iterator itr = tokenSource.begin(); itr != tokenSource.end(); ++itr)
+    {
+        tok = *itr;
+
+        switch (tok->tokenType)
+        {
+            // text token (just copy contents)
+            case PHTT_TEXT:
+                WriteTextContent(outfile, tok);
+                break;
+            // block type - choose handler function an call id
+            case PHTT_BLOCK:
+            {
+                switch (tok->blockType)
+                {
+                    // flat profile
+                    case PHBT_FLAT_PROFILE:
+                        FillFlatProfileBlock(outfile, tok);
+                        break;
+                    // call graph
+                    case PHBT_CALL_GRAPH:
+                        FillCallGraphBlock(outfile, tok);
+                        break;
+                }
+                break;
+            }
+            // include another file to this position
+            case PHTT_INCLUDE:
+            {
+                // if file parsing is successfull, fill this file with parsed tokens
+                if (ParseTemplateFile(tok->textContent, tmpTokens))
+                    FillTemplateFile(outfile, tmpTokens);
+                else
+                    LogFunc(LOG_ERROR, "Could not open or parse file %s specified in INCLUDE token", tok->textContent.c_str());
+                break;
+            }
+            // copy file from source directory to destination
+            case PHTT_COPYFILE:
+            {
+                // if the file is not already listed, insert it to set
+                if (m_filesToCopy.find(tok->textContent) == m_filesToCopy.end())
+                    m_filesToCopy.insert(tok->textContent);
+                else
+                    LogFunc(LOG_WARNING, "File %s is already queued for copying to destination location", tok->textContent.c_str());
+                break;
+            }
+        }
+    }
+}
+
+void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
+{
+    // TODO: real output directory
+    FILE* outfile = fopen("index.html", "w");
+
+    m_data = data;
+
+    m_filesToCopy.clear();
+
+    // fill using main template file
+    FillTemplateFile(outfile, m_tokens);
+
+    // copy all files requested to be copied to dest directory
+    for (auto itr : m_filesToCopy)
+        CopyFileToDst(itr.c_str());
 
     fclose(outfile);
+}
+
+void HtmlTemplateWorker::CopyFileToDst(const char* source)
+{
+    std::ifstream src((std::string(PIVO_HTML_TEMPLATE_PATH) + std::string(source)).c_str(), std::ios::binary);
+    // TODO: real output directory
+    std::ofstream dst(source, std::ios::binary);
+
+    // check source file presence and validity
+    if (src.bad() || src.fail())
+    {
+        LogFunc(LOG_ERROR, "Could not open source file %s for copying", source);
+        return;
+    }
+
+    // check if file stream to destination place could be opened
+    if (dst.bad() || dst.fail())
+    {
+        LogFunc(LOG_ERROR, "Could not create destination file %s - check rights and disk space", source);
+        return;
+    }
+
+    // copy actual contents
+    dst << src.rdbuf();
 }
 
 std::string HtmlTemplateWorker::EscapeHTML(const char* src)

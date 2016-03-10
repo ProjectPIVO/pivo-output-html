@@ -1,133 +1,83 @@
 <#INCLUDE header.template.html#>
 
-<div id="callgraph_canvas">
-</div>
-
 <script>
-
-var nodeInfo = {
-};
-
-var callGraphData = [
-];
-
-function pivo_addCallGraphNode(id, name, timeTotal, timeTotalPct)
-{
-	if (typeof nodeInfo[id] === 'undefined')
-		nodeInfo[id] = { 'id': id, 'label': name, 'profTimeTotal': timeTotal, 'profTimePct': timeTotalPct };
-}
-
-function pivo_addCallGraphEdge(source, dest, callCount)
-{
-	callGraphData.push({ 'from': source, 'to': dest, 'arrows': 'to' });
-}
 
 function pivo_initCallGraphData()
 {
 	<#BEGIN CALL_GRAPH_DATA#>
-	if (<#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#> > 1.0)
-	{
-		pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>);
-		if (<#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#> > 1.0)
-		{
-			pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>);
-			pivo_addCallGraphEdge(<#RAWVALUE CALLER_ID#>, <#RAWVALUE CALLEE_ID#>, <#RAWVALUE CALL_COUNT#>);
-		}
-	}
+	pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>);
+	pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>);
+	pivo_addCallGraphEdge(<#RAWVALUE CALLER_ID#>, <#RAWVALUE CALLEE_ID#>, <#RAWVALUE CALL_COUNT#>);
 	<#END CALL_GRAPH_DATA#>
 }
 
-function pivo_getHexColor(r, g, b)
-{
-	var color = '#';
-
-	color += ('00' + Number(r).toString(16)).slice(-2)
-		+('00' + Number(g).toString(16)).slice(-2)
-		+('00' + Number(b).toString(16)).slice(-2);
-	
-	return color;
-}
-
-document.addEventListener("DOMContentLoaded", function(event) {
+$(document).ready(function() {
 	pivo_initCallGraphData();
-
-	var rootNodeCandidates = [];
-
-	for (var i in nodeInfo)
-	{
-		var r = Math.ceil(255 * nodeInfo[i].profTimePct / 100.0);
-		var g = Math.floor(255 * (1 - (nodeInfo[i].profTimePct / 100.0)));
-		var b = 0;
-		nodeInfo[i].color = pivo_getHexColor(r,g,b);
-	}
-
-	var container = document.getElementById('callgraph_canvas');
-	var convNodes = Object.keys(nodeInfo).map(function (key) {return nodeInfo[key]});
-	var data = { nodes: convNodes, edges: callGraphData };
+	pivo_createCallGraph();
 	
-	var options = {
-		layout: {
-			randomSeed: 2,
-//			hierarchical: {
-//				direction: 'UD',
-//				sortMethod: 'directed'
-//				nodeSpacing: 200
-//			}
-		},
-		nodes: {
-			shape: 'box',
-			size: 8,
-			font: {
-				size: 10,
-				color: '#000000',
-				background: '#FFFFFF'
-			},
-			borderWidth: 2
-		},
-		physics: {
-			enabled: false
-		},
-		edges: {
-			width: 2,
-			smooth: {type:'cubicBezier'}
-		}
-	};
-
-	var network = new vis.Network(container, data, options);
+	$('.report-tab-content').addClass('hidden');
+	$('.report-tab-content').first().removeClass('hidden');
 });
 
 </script>
 
-Basic info:<br />
-<ul>
-<#BEGIN SUMMARY#>
-	<li><#VALUE KEY#>: <#VALUE CONTENT#></li>
-<#END SUMMARY#>
-</ul>
+<div id="report-container">
 
-<table class="flatview">
-	<thead>
-		<tr>
-			<th>%&nbsp;time</th>
-			<th>Total&nbsp;time</th>
-			<th>%&nbsp;inclusive time</th>
-			<th>Total&nbsp;inclusive time</th>
-			<th>Call&nbsp;count</th>
-			<th>Function&nbsp;name</th>
-		</tr>
-	</thead>
-	<tbody>
-<#BEGIN FLAT_VIEW_ROWS#>
-	<tr>
-		<td><#VALUE PCT_TIME#></td>
-		<td><#VALUE TOTAL_TIME#></td>
-		<td><#VALUE PCT_INCLUSIVE_TIME#></td>
-                <td><#VALUE TOTAL_INCLUSIVE_TIME#></td>
-		<td><#VALUE CALL_COUNT#></td>
-		<td class="nametd"><div class="tdfulltop padded"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
-	</tr>
-<#END FLAT_VIEW_ROWS#>
-	</tbody>
-</table>
+	<div id="report-header">
+		<h1>PIVO - Report</h1>
+		<div id="report-tabbed-menu">
+			<div class="report-tab" id="report-tab-menu--basic-info" onclick="pivo_selectTab('basic-info');">BASIC INFO</div>
+			<div class="report-tab" id="report-tab-menu--flat-view" onclick="pivo_selectTab('flat-view');">FLAT PROFILE</div>
+			<div class="report-tab" id="report-tab-menu--call-graph" onclick="pivo_selectTab('call-graph');">CALL GRAPH</div>
+		</div>
+	</div>
+	
+	<div id="report-content">
+
+		<div class="report-tab-content" id="report-tab--basic-info">
+
+			<ul>
+			<#BEGIN SUMMARY#>
+				<li><#VALUE KEY#>: <#VALUE CONTENT#></li>
+			<#END SUMMARY#>
+			</ul>
+
+		</div>
+
+		<div class="report-tab-content" id="report-tab--flat-view">
+			<table class="flatview">
+				<thead>
+					<tr>
+						<th>Time [%]</th>
+						<th>Time [s]</th>
+						<th>Inclusive&nbsp;time [%]</th>
+						<th>Inclusive&nbsp;time [s]</th>
+						<th>Call&nbsp;count</th>
+						<th>Function&nbsp;name</th>
+					</tr>
+				</thead>
+				<tbody>
+				<#BEGIN FLAT_VIEW_ROWS#>
+				<tr>
+					<td><#VALUE PCT_TIME#></td>
+					<td><#VALUE TOTAL_TIME#></td>
+					<td><#VALUE PCT_INCLUSIVE_TIME#></td>
+							<td><#VALUE TOTAL_INCLUSIVE_TIME#></td>
+					<td><#VALUE CALL_COUNT#></td>
+					<td class="nametd"><div class="tdfulltop padded"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
+				</tr>
+				<#END FLAT_VIEW_ROWS#>
+				</tbody>
+			</table>
+		</div>
+		
+		<div class="report-tab-content" id="report-tab--call-graph">
+			<div id="callgraph_canvas">
+			</div>
+		</div>
+
+	</div>
+
+</div>
 
 <#INCLUDE footer.template.html#>

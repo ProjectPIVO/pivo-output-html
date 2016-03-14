@@ -642,6 +642,26 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
     {
         return std::to_string(m_data->callGraph[caller_id][callee_id]);
     }
+    else if (strcmp(identifier, "CALLER_TOTAL_CALL_COUNT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != caller_id)
+                continue;
+
+            return std::to_string((*fpitr).callCount);
+        }
+    }
+    else if (strcmp(identifier, "CALLEE_TOTAL_CALL_COUNT") == 0)
+    {
+        for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
+        {
+            if ((*fpitr).functionId != callee_id)
+                continue;
+
+            return std::to_string((*fpitr).callCount);
+        }
+    }
     else if (strcmp(identifier, "CALLER_FLAT_TIME_PCT") == 0)
     {
         for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)

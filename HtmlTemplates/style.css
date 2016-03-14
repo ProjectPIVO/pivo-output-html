@@ -1,8 +1,17 @@
-body, table
+body
+{
+	background: #FFE4BC;
+}
+
+*
+{
+	box-sizing: border-box;
+}
+
+body, table, select, input[type=text]
 {
 	font-size: 10pt;
 	font-family: Courier New;
-	background: #FFE4BC;
 	padding: 0;
 	margin: 0;
 }
@@ -38,6 +47,7 @@ body, table
 	padding: 0 1em;
 	font-size: 9pt;
 	font-family: Arial;
+	letter-spacing: 1.25;
 	margin-right: 2px;
 	
 	cursor: pointer;
@@ -76,6 +86,117 @@ h1
 	display: none;
 }
 
+#report-content .toolbar-flow-top
+{
+	position: relative;
+	width: 100%;
+	background: white;
+	padding: 0.3em 0.8em;
+	border: 1px solid #FFFFDD;
+	min-height: 1.75em;
+	overflow: auto;
+}
+
+#report-content .toolbar-top-left
+{
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	padding: 0.3em 0.8em;
+	background: white;
+	border: 1px solid #FFFFDD;
+}
+
+#report-content .toolbar-top-left.opener,
+ #report-content .toolbar-flow-top.opener
+{
+	display: none;
+}
+
+#report-content .toolbar-top-left .hide-text,
+ #report-content .toolbar-flow-top .hide-text
+{
+	display: block;
+	position: absolute;
+	top: 2px;
+	right: 4px;
+	font-size: 8pt;
+	cursor: pointer;
+}
+#report-content .toolbar-top-left.opener .hide-text
+{
+	position: relative;
+	top: 0;
+	right: 0;
+	margin-bottom: 0.3em;
+}
+
+#report-content .toolbar-top-left .label-text,
+ #report-content .toolbar-flow-top .label-text
+{
+	margin: 0.3em 0 0.3em 0;
+}
+
+#report-content .toolbar-top-left button.right,
+ #report-content .toolbar-flow-top button.right
+{
+	float: right;
+	margin-right: 0;
+}
+
+#report-content .toolbar-top-left button,
+ #report-content .toolbar-flow-top button
+{
+	display: block;
+	background: #FFA114;
+	
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	border: none;
+	
+	height: 24px;
+	line-height: 24px;
+	padding: 0 1em;
+	font-size: 9pt;
+	font-family: Arial;
+	
+	margin: 0.5em;
+	
+	cursor: pointer;
+}
+
+.report-tab-content.padded
+{
+	padding: 1em;
+}
+
+#report-content .toolbar-top-left .callgraph-preference-entry
+{
+	height: 1.6em;
+	line-height: 1.6em;
+}
+
+#report-content .toolbar-top-left .callgraph-preference-entry input,
+ #report-content .toolbar-top-left .callgraph-preference-entry select
+{
+	width: 100%;
+}
+
+.summary-table td
+{
+	padding: 0.3em 2em 0.3em 0;
+}
+.summary-table td.summary-header
+{
+	font-size: 12pt;
+	font-weight: bold;
+}
+.summary-table td.summary-key
+{
+	font-weight: bold;
+}
+
 .tdfill
 {
 	position: absolute; left: 0; top: 0; bottom: 0;
@@ -108,6 +229,11 @@ table.flatview th
 	padding: 0.5em;
 	text-align: left;
 	vertical-align: top;
+	cursor: pointer;
+}
+table.flatview th.sorted-by
+{
+	border-bottom: 1px dashed black;
 }
 table.flatview td.nametd
 {

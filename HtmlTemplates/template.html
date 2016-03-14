@@ -5,13 +5,14 @@
 function pivo_initCallGraphData()
 {
 	<#BEGIN CALL_GRAPH_DATA#>
-	pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>);
-	pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>);
+	pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLER_FLAT_TIME#>, <#RAWVALUE CALLER_FLAT_TIME_PCT#>, <#RAWVALUE CALLER_TOTAL_CALL_COUNT#>);
+	pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLEE_FLAT_TIME#>, <#RAWVALUE CALLEE_FLAT_TIME_PCT#>, <#RAWVALUE CALLEE_TOTAL_CALL_COUNT#>);
 	pivo_addCallGraphEdge(<#RAWVALUE CALLER_ID#>, <#RAWVALUE CALLEE_ID#>, <#RAWVALUE CALL_COUNT#>);
 	<#END CALL_GRAPH_DATA#>
 }
 
 $(document).ready(function() {
+	pivo_createFlatView();
 	pivo_initCallGraphData();
 	pivo_createCallGraph();
 	
@@ -34,35 +35,68 @@ $(document).ready(function() {
 	
 	<div id="report-content">
 
-		<div class="report-tab-content" id="report-tab--basic-info">
+		<div class="report-tab-content padded" id="report-tab--basic-info">
 
-			<ul>
+			<table class="summary-table">
+				<tr>
+					<td class="summary-header" colspan="2">PROFILING SUMMARY</td>
+				</tr>
 			<#BEGIN SUMMARY#>
-				<li><#VALUE KEY#>: <#VALUE CONTENT#></li>
+				<tr>
+					<td class="summary-key"><#VALUE KEY#></td><td><#VALUE CONTENT#></td>
+				</tr>
 			<#END SUMMARY#>
-			</ul>
+			</table>
 
 		</div>
 
-		<div class="report-tab-content" id="report-tab--flat-view">
+		<div class="report-tab-content padded" id="report-tab--flat-view">
+			<div class="toolbar-flow-top opener flatview">
+				<a href="javascript:void(0);" onclick="pivo_toolbarShow('flatview', 'flow-top')" class="hide-text">SHOW</a>
+			</div>
+			<div class="toolbar-flow-top flatview">
+				<a href="javascript:void(0);" onclick="pivo_toolbarHide('flatview', 'flow-top')" class="hide-text">HIDE</a>
+				
+				<div class="label-text">Filter:</div>
+				
+				<div class="flatview-filter-entry">
+					<select class="flatview-filter-type">
+						<option value="none">None</option>
+						<option value="inclusive">Inclusive time</option>
+						<option value="inclusive-pct" selected>Inclusive time [%]</option>
+						<option value="exclusive">Exclusive time</option>
+						<option value="exclusive-pct">Exclusive time [%]</option>
+						<option value="callcount">Call count</option>
+					</select>
+					<select class="flatview-filter-operator">
+						<option value="greaterthan" selected>&gt;</option>
+						<option value="lessthan">&lt;</option>
+						<option value="equals">=</option>
+					</select>
+					<input type="text" class="flatview-filter-value" value="1" />
+				</div>
+				
+				<button type="button" class="right" onclick="pivo_createFlatView();">PROCEED</button>
+				
+			</div>
 			<table class="flatview">
 				<thead>
 					<tr>
-						<th>Time [%]</th>
-						<th>Time [s]</th>
-						<th>Inclusive&nbsp;time [%]</th>
-						<th>Inclusive&nbsp;time [s]</th>
-						<th>Call&nbsp;count</th>
+						<th class="sort-float sorted-by">Time [%]</th>
+						<th class="sort-float">Time [s]</th>
+						<th class="sort-float">Inclusive&nbsp;time [%]</th>
+						<th class="sort-float">Inclusive&nbsp;time [s]</th>
+						<th class="sort-int">Call&nbsp;count</th>
 						<th>Function&nbsp;name</th>
 					</tr>
 				</thead>
 				<tbody>
 				<#BEGIN FLAT_VIEW_ROWS#>
-				<tr>
+				<tr data-function-type="<#VALUE FUNCTION_TYPE#>" data-inclusive="<#VALUE TOTAL_INCLUSIVE_TIME#>" data-inclusive-pct="<#VALUE PCT_INCLUSIVE_TIME#>" data-exclusive="<#VALUE TOTAL_TIME#>" data-exclusive-pct="<#VALUE PCT_TIME#>" data-callcount="<#VALUE CALL_COUNT#>">
 					<td><#VALUE PCT_TIME#></td>
 					<td><#VALUE TOTAL_TIME#></td>
 					<td><#VALUE PCT_INCLUSIVE_TIME#></td>
-							<td><#VALUE TOTAL_INCLUSIVE_TIME#></td>
+					<td><#VALUE TOTAL_INCLUSIVE_TIME#></td>
 					<td><#VALUE CALL_COUNT#></td>
 					<td class="nametd"><div class="tdfulltop padded"><#VALUE FUNCTION_NAME#></div><div class="tdfill func_bg_<#VALUE FUNCTION_TYPE#>" style="width: <#VALUE PCT_TIME#>%;"></div></td>
 				</tr>
@@ -73,6 +107,58 @@ $(document).ready(function() {
 		
 		<div class="report-tab-content" id="report-tab--call-graph">
 			<div id="callgraph_canvas">
+			</div>
+			<div class="toolbar-top-left opener callgraph-toolbar">
+				<a href="javascript:void(0);" onclick="pivo_toolbarShow('callgraph-toolbar', 'top-left')" class="hide-text">SHOW</a>
+			</div>
+			<div class="toolbar-top-left callgraph-toolbar">
+				<a href="javascript:void(0);" onclick="pivo_toolbarHide('callgraph-toolbar', 'top-left')" class="hide-text">HIDE</a>
+			
+				<div class="label-text">Filter:</div>
+
+				<div class="callgraph-filter-entry">
+					<select class="callgraph-filter-type">
+						<option value="none">None</option>
+						<option value="inclusive">Inclusive time</option>
+						<option value="inclusive-pct" selected>Inclusive time [%]</option>
+						<option value="exclusive">Exclusive time</option>
+						<option value="exclusive-pct">Exclusive time [%]</option>
+						<option value="callcount">Call count</option>
+					</select>
+					<select class="callgraph-filter-operator">
+						<option value="greaterthan" selected>&gt;</option>
+						<option value="lessthan">&lt;</option>
+						<option value="equals">=</option>
+					</select>
+					<input type="text" class="callgraph-filter-value" value="1" />
+				</div>
+
+				<div class="label-text">Preferences:</div>
+
+				<table style="width: 100%;">
+					<tr>
+						<td class="callgraph-preference-entry">
+							Determine color by:
+						</td>
+						<td class="callgraph-preference-entry">
+							<select class="callgraph-preference-color-source">
+								<option value="inclusive-pct">Inclusive time</option>
+								<option value="exclusive-pct">Exclusive time</option>
+								<option value="callcount">Call count</option>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<td class="callgraph-preference-entry">
+							Name ellipsis (0 for none):
+						</td>
+						<td class="callgraph-preference-entry">
+							<input type="text" class="callgraph-preference-nameellipsis" value="16" />
+						</td>
+					</tr>
+				</table>
+
+				<button type="button" class="right" onclick="pivo_createCallGraph();">PROCEED</button>
 			</div>
 		</div>
 

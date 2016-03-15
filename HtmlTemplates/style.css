@@ -16,6 +16,17 @@ body, table, select, input[type=text]
 	margin: 0;
 }
 
+.vis-network-tooltip
+{
+	font-size: 8pt !important;
+	font-family: Courier New !important;
+}
+.vis-network-tooltip .fname
+{
+	font-weight: bold;
+	font-size: 10pt !important;
+}
+
 #report-container
 {
 	display: flex;

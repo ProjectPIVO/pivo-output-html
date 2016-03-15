@@ -6,6 +6,8 @@ var filterSourceFieldPredicates = {
 	'exclusive': function(node) { return node.profTimeTotalExclusive; },
 	'exclusive-pct': function(node) { return node.profTimeTotalExclusivePct; },
 	'callcount': function(node) { return node.profTotalCallCount; },
+	'inclusive-exclusive-ratio': function(node) { return (1.0+node.profTimeTotalInclusivePct)/(1.0+node.profTimeTotalExclusivePct); },
+	'exclusive-inclusive-ratio': function(node) { return -(1.0+node.profTimeTotalExclusivePct)/(1.0+node.profTimeTotalInclusivePct); },
 };
 
 var filterOperatorPredicates = {
@@ -76,10 +78,27 @@ var nodeInfo = {
 var callGraphData = [
 ];
 
+// key = node, value = array of incident nodes (from node to each of these nodes)
+var incidencyGraph = {
+};
+// key = node, value = array of source ("parent") nodes (from each of these nodes to key node)
+var reverseIncidencyGraph = {
+};
+
+function escapeHtml(txt)
+{
+	return $('<div>').text(txt).html();
+}
+
 function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusivePct, timeTotal, timeTotalPct, totalCallCount)
 {
 	if (typeof nodeInfo[id] === 'undefined')
 	{
+		var title = '<span class="fname">'+escapeHtml(name)+'</span><br/>'+
+			    'Inclusive time: '+timeTotalInclusivePct+'% ('+timeTotalInclusive+'s)<br/>'+
+			    'Exclusive time: '+timeTotalPct+'% ('+timeTotal+'s)<br/>'+
+			    'Call count: '+totalCallCount+'x';
+
 		nodeInfo[id] = {
 			'id': id,
 			'name': name,
@@ -87,14 +106,21 @@ function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusiveP
 			'profTimeTotalInclusivePct': timeTotalInclusivePct,
 			'profTimeTotalExclusive': timeTotal,
 			'profTimeTotalExclusivePct': timeTotalPct,
-			'profTotalCallCount': totalCallCount
+			'profTotalCallCount': totalCallCount,
+			'title': title
 		};
+
+		incidencyGraph[id] = [];
+		reverseIncidencyGraph[id] = [];
 	}
 }
 
 function pivo_addCallGraphEdge(source, dest, callCount)
 {
 	callGraphData.push({ 'from': source, 'to': dest, 'arrows': 'to' });
+
+	incidencyGraph[source].push(dest);
+	reverseIncidencyGraph[dest].push(source);
 }
 
 function pivo_getHexColor(r, g, b)
@@ -175,8 +201,51 @@ function pivo_createCallGraph()
 		if (type !== 'none')
 			filterConditions.push({ 'type': type, 'op': op, 'value': value });
 	});
-	
+
+	// TODO: recursion
+	var dfsStack = [];
+
+	// find entry point candidates and push them onto stack
+	// 1. all functions with zero input degree (are not called throughout execution, just call others)
+	for (var i in reverseIncidencyGraph)
+	{
+		if (reverseIncidencyGraph[i].length == 0)
+			dfsStack.push(i);
+	}
+	// 2. functions called "main", and, for safeness reasons, greater output degree than input degree
+	for (var i in nodeInfo)
+	{
+		var nm = nodeInfo[i].name;
+		if (dfsStack.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length < incidencyGraph[i].length)
+			dfsStack.push(i);
+	}
+	// 3. fallback - when no node in DFS stack, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
+	if (dfsStack.length == 0)
+	{
+		// TODO: make this real
+	}
+
+	// for each node in DFS stack, set level = 0, because they're our root nodes
+	for (var i in dfsStack)
+		nodeInfo[dfsStack[i]].level = 0;
+
+	// DFS traversal for each node in stack
+	while (dfsStack.length > 0)
+	{
+		var nodeId = dfsStack.pop();
+
+		for (var i in incidencyGraph[nodeId])
+		{
+			var childNodeId = incidencyGraph[nodeId][i];
+			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level < nodeInfo[nodeId].level + 1)
+				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
+			dfsStack.push(childNodeId);
+		}
+	}
+
 	var preferenceNameEllipsis = parseInt($('.callgraph-preference-nameellipsis').val());
+	if (typeof preferenceNameEllipsis === 'undefined' || preferenceNameEllipsis == null)
+		preferenceNameEllipsis = 0;
 
 	var presentNodes = [];
 	var convNodes = [];
@@ -200,6 +269,9 @@ function pivo_createCallGraph()
 		node.label = node.name;
 		if (preferenceNameEllipsis > 0 && node.label.length > preferenceNameEllipsis)
 			node.label = node.label.substr(0, preferenceNameEllipsis) + '..';
+
+		if (typeof node.level === 'undefined')
+			node.level = 0;
 		
 		convNodes.push(node);
 		presentNodes.push(node.id);
@@ -216,21 +288,23 @@ function pivo_createCallGraph()
 	}
 	
 	var data = { nodes: convNodes, edges: convEdges };
+
+	var graphNodeSpacing = preferenceNameEllipsis > 0 ? (150*preferenceNameEllipsis/16) : 200;
 	
 	var options = {
 		layout: {
 			randomSeed: 2,
-//			hierarchical: {
-//				direction: 'UD',
-//				sortMethod: 'directed'
-//				nodeSpacing: 200
-//			}
+			hierarchical: {
+				direction: 'UD',
+				sortMethod: 'directed',
+				nodeSpacing: graphNodeSpacing
+			}
 		},
 		nodes: {
 			shape: 'box',
 			size: 8,
 			font: {
-				size: 10,
+				size: 14,
 				color: '#000000'
 			},
 			borderWidth: 2
@@ -240,7 +314,12 @@ function pivo_createCallGraph()
 		},
 		edges: {
 			width: 2,
-			smooth: {type:'cubicBezier'}
+			scaleFactor: 0.5
+//			smooth: {type:'cubicBezier'}
+		},
+		interaction:  {
+			hover: true,
+			tooltipDelay: 0
 		}
 	};
 

@@ -12,7 +12,9 @@ var filterSourceFieldPredicates = {
 
 var filterOperatorPredicates = {
 	'greaterthan': function(a,b) { return a > b; },
+	'greaterequal': function(a,b) { return a >= b; },
 	'lessthan': function(a,b) { return a < b; },
+	'lessequal': function(a,b) { return a <= b; },
 	'equals': function(a,b) { return a == b; }
 };
 

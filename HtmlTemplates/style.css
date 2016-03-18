@@ -252,3 +252,32 @@ table.flatview td.nametd
 	width: 100%;
 	text-align: left;
 }
+
+.flatview-filter-entry,
+ .callgraph-filter-entry
+{
+	margin-bottom: 0.5em;
+}
+
+.flatview-filter-entry >*,
+ .callgraph-filter-entry >*
+{
+	vertical-align: middle;
+}
+
+.flatview-filter-deletefield,
+ .callgraph-filter-deletefield
+{
+	display: inline-block;
+	vertical-align: middle;
+	width: 1.0em;
+	height: 1.0em;
+	text-align: center;
+	line-height: 1.0em;
+}
+
+.flatview-filter-deletefield >span,
+ .callgraph-filter-deletefield >span
+{
+	cursor: pointer;
+}

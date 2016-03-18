@@ -25,6 +25,20 @@ function pivo_selectTab(identifier)
 	$('#report-tab-menu--'+identifier).addClass('selected');
 }
 
+function pivo_removeFilter(element)
+{
+	$(element).parent().parent().remove();
+}
+
+function pivo_addFilter(identifier)
+{
+	var nfe = $('.'+identifier+'-filter-entry.original').clone();
+	nfe.removeClass('original');
+	nfe.insertAfter($('.'+identifier+'-filter-entry').last());
+	var delbtn = $('<span onclick="pivo_removeFilter(this);">✕</span>');
+	nfe.find('.'+identifier+'-filter-deletefield').append(delbtn);
+}
+
 function pivo_createFlatView()
 {
 	var filterConditions = [];

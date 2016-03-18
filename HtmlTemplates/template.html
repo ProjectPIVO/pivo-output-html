@@ -59,7 +59,7 @@ $(document).ready(function() {
 				
 				<div class="label-text">Filter:</div>
 				
-				<div class="flatview-filter-entry">
+				<div class="flatview-filter-entry original">
 					<select class="flatview-filter-type">
 						<option value="none">None</option>
 						<option value="inclusive">Inclusive time</option>
@@ -74,7 +74,10 @@ $(document).ready(function() {
 						<option value="equals">=</option>
 					</select>
 					<input type="text" class="flatview-filter-value" value="1" />
+					<span class="flatview-filter-deletefield"></span>
 				</div>
+				
+				<button type="button" onclick="pivo_addFilter('flatview');">ADD FILTER</button>
 				
 				<button type="button" class="right" onclick="pivo_createFlatView();">PROCEED</button>
 				
@@ -116,7 +119,7 @@ $(document).ready(function() {
 			
 				<div class="label-text">Filter:</div>
 
-				<div class="callgraph-filter-entry">
+				<div class="callgraph-filter-entry original">
 					<select class="callgraph-filter-type">
 						<option value="none">None</option>
 						<option value="inclusive">Inclusive time</option>
@@ -131,7 +134,10 @@ $(document).ready(function() {
 						<option value="equals">=</option>
 					</select>
 					<input type="text" class="callgraph-filter-value" value="1" />
+					<span class="callgraph-filter-deletefield"></span>
 				</div>
+				
+				<button type="button" onclick="pivo_addFilter('callgraph');">ADD FILTER</button>
 
 				<div class="label-text">Preferences:</div>
 

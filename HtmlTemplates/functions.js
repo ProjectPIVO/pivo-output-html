@@ -237,9 +237,11 @@ function pivo_createCallGraph()
 		for (var i in incidencyGraph[nodeId])
 		{
 			var childNodeId = incidencyGraph[nodeId][i];
-			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level < nodeInfo[nodeId].level + 1)
+			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level < nodeInfo[nodeId].level)
+			{
 				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
-			dfsStack.push(childNodeId);
+				dfsStack.push(childNodeId);
+			}
 		}
 	}
 

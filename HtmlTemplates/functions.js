@@ -171,39 +171,15 @@ function pivo_toolbarShow(filterclass, toolbarclass)
 	$('.toolbar-'+toolbarclass+'.'+filterclass).not('.opener').show();
 }
 
-function pivo_createCallGraph()
+function pivo_createCallGraph(entryPoint)
 {
-	var colorBy = $('.callgraph-preference-color-source').val();
-	var colMinVal = 0.0, colMaxVal = 100.0;
-	
-	colMinVal = null;
-	colMaxVal = null;
+	// reset graph state
 	for (var i in nodeInfo)
 	{
-		v = (filterSourceFieldPredicates[colorBy](nodeInfo[i]));
-		if (colMinVal === null || v < colMinVal)
-			colMinVal = v;
-		else if (colMaxVal === null || v > colMaxVal)
-			colMaxVal = v;
-	}
-
-	var colValDiff = colMaxVal - colMinVal;
-	for (var i in nodeInfo)
-	{
-		var pct = (filterSourceFieldPredicates[colorBy](nodeInfo[i]) - colMinVal) / colValDiff;
-		var r, g;
-		if (pct > 0.5)
-		{
-			r = 255;
-			g = rangeAlignColor(Math.floor(255 * (0.5 - (pct - 0.5)) * 2));
-		}
-		else
-		{
-			r = rangeAlignColor(Math.ceil(255 * pct * 2));
-			g = 255;
-		}
-		var b = 0;
-		nodeInfo[i].color = pivo_getHexColor(r,g,b);
+		// by default it's not present in graph
+		nodeInfo[i].present = false;
+		// also reset level info
+		nodeInfo[i].level = null;
 	}
 
 	var container = document.getElementById('callgraph_canvas');
@@ -221,26 +197,33 @@ function pivo_createCallGraph()
 	// TODO: recursion
 	var dfsStack = [];
 
-	// find entry point candidates and push them onto stack
-	// 1. all functions with zero input degree (are not called throughout execution, just call others)
-	for (var i in reverseIncidencyGraph)
+	if (typeof entryPoint === 'undefined')
 	{
-		if (reverseIncidencyGraph[i].length == 0)
-			dfsStack.push(i);
+		// find entry point candidates and push them onto stack
+		// 1. all functions with zero input degree (are not called throughout execution, just call others)
+		for (var i in reverseIncidencyGraph)
+		{
+			if (reverseIncidencyGraph[i].length == 0)
+				dfsStack.push(i);
+		}
+		// 2. functions called "main", and, for safeness reasons, greater output degree than input degree
+		for (var i in nodeInfo)
+		{
+			var nm = nodeInfo[i].name;
+			if (dfsStack.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length < incidencyGraph[i].length)
+				dfsStack.push(i);
+		}
+		// 3. fallback - when no node in DFS stack, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
+		if (dfsStack.length == 0)
+		{
+			// TODO: make this real
+		}
 	}
-	// 2. functions called "main", and, for safeness reasons, greater output degree than input degree
-	for (var i in nodeInfo)
+	else
 	{
-		var nm = nodeInfo[i].name;
-		if (dfsStack.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length < incidencyGraph[i].length)
-			dfsStack.push(i);
+		dfsStack.push(entryPoint);
 	}
-	// 3. fallback - when no node in DFS stack, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
-	if (dfsStack.length == 0)
-	{
-		// TODO: make this real
-	}
-
+	
 	// for each node in DFS stack, set level = 0, because they're our root nodes
 	for (var i in dfsStack)
 		nodeInfo[dfsStack[i]].level = 0;
@@ -253,7 +236,7 @@ function pivo_createCallGraph()
 		for (var i in incidencyGraph[nodeId])
 		{
 			var childNodeId = incidencyGraph[nodeId][i];
-			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level < nodeInfo[nodeId].level)
+			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level === null || nodeInfo[childNodeId].level < nodeInfo[nodeId].level)
 			{
 				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
 				dfsStack.push(childNodeId);
@@ -288,9 +271,15 @@ function pivo_createCallGraph()
 		if (preferenceNameEllipsis > 0 && node.label.length > preferenceNameEllipsis)
 			node.label = node.label.substr(0, preferenceNameEllipsis) + '..';
 
-		if (typeof node.level === 'undefined')
-			node.level = 0;
+		if (typeof node.level === 'undefined' || node.level === null)
+		{
+			if (typeof entryPoint === 'undefined')
+				node.level = 0;
+			else
+				continue;
+		}
 		
+		nodeInfo[i].present = true;
 		convNodes.push(node);
 		presentNodes.push(node.id);
 	}
@@ -305,6 +294,45 @@ function pivo_createCallGraph()
 		}
 	}
 	
+	// determine color
+	var colorBy = $('.callgraph-preference-color-source').val();
+	var colMinVal, colMaxVal;
+	
+	colMinVal = null;
+	colMaxVal = null;
+	for (var i in nodeInfo)
+	{
+		// we determine coloring range only from visible nodes
+		if (!nodeInfo[i].present)
+			continue;
+
+		v = (filterSourceFieldPredicates[colorBy](nodeInfo[i]));
+		if (colMinVal === null || v < colMinVal)
+			colMinVal = v;
+		if (colMaxVal === null || v > colMaxVal)
+			colMaxVal = v;
+	}
+
+	var colValDiff = colMaxVal - colMinVal;
+	for (var i in nodeInfo)
+	{
+		var pct = colValDiff > 0 ? (filterSourceFieldPredicates[colorBy](nodeInfo[i]) - colMinVal) / colValDiff : 1;
+		var r, g;
+		if (pct > 0.5)
+		{
+			r = 255;
+			g = rangeAlignColor(Math.floor(255 * (0.5 - (pct - 0.5)) * 2));
+		}
+		else
+		{
+			r = rangeAlignColor(Math.ceil(255 * pct * 2));
+			g = 255;
+		}
+		var b = 0;
+		nodeInfo[i].color = pivo_getHexColor(r,g,b);
+	}
+	
+	// build graph data object
 	var data = { nodes: convNodes, edges: convEdges };
 
 	var graphNodeSpacing = preferenceNameEllipsis > 0 ? (150*preferenceNameEllipsis/16) : 200;
@@ -331,15 +359,20 @@ function pivo_createCallGraph()
 			enabled: false
 		},
 		edges: {
-			width: 2,
-			scaleFactor: 0.5
-//			smooth: {type:'cubicBezier'}
+			width: 2
 		},
 		interaction:  {
 			hover: true,
 			tooltipDelay: 0
 		}
 	};
-
+	
 	var network = new vis.Network(container, data, options);
+	
+	network.on("doubleClick", function (params) {
+		if (typeof params.nodes !== 'undefined' && params.nodes.length === 1)
+		{
+			pivo_createCallGraph(params.nodes[0]);
+		}
+	});
 }

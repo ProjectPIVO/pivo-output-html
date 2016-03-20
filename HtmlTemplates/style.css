@@ -281,3 +281,11 @@ table.flatview td.nametd
 {
 	cursor: pointer;
 }
+
+.view-info
+{
+	position: absolute;
+	left: 0.8em;
+	bottom: 0.8em;
+	font-size: 7pt;
+}

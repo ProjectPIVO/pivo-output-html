@@ -335,17 +335,26 @@ function pivo_createCallGraph(entryPoint)
 	// build graph data object
 	var data = { nodes: convNodes, edges: convEdges };
 
+	// graph layout options
+	var layoutOptions = {
+		randomSeed: 2
+	};
+	
 	var graphNodeSpacing = preferenceNameEllipsis > 0 ? (150*preferenceNameEllipsis/16) : 200;
+
+	// determine node hierarchy status
+	var hierarchyEnabled = $('.callgraph-preference-hierarchy').is(':checked');
+	if (hierarchyEnabled)
+	{
+		layoutOptions['hierarchical'] = {
+			direction: 'UD',
+			sortMethod: 'directed',
+			nodeSpacing: graphNodeSpacing
+		};
+	}
 	
 	var options = {
-		layout: {
-			randomSeed: 2,
-			hierarchical: {
-				direction: 'UD',
-				sortMethod: 'directed',
-				nodeSpacing: graphNodeSpacing
-			}
-		},
+		layout: layoutOptions,
 		nodes: {
 			shape: 'box',
 			size: 8,

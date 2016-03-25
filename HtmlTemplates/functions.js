@@ -180,6 +180,8 @@ function pivo_createCallGraph(entryPoint)
 		nodeInfo[i].present = false;
 		// also reset level info
 		nodeInfo[i].level = null;
+		// nullify hitcount
+		nodeInfo[i].hitCount = 0;
 	}
 
 	var container = document.getElementById('callgraph_canvas');
@@ -233,10 +235,15 @@ function pivo_createCallGraph(entryPoint)
 	{
 		var nodeId = dfsStack.pop();
 
+		nodeInfo[nodeId].hitCount++;
+		
+		if (nodeInfo[nodeId].hitCount > 10)
+			continue;
+
 		for (var i in incidencyGraph[nodeId])
 		{
 			var childNodeId = incidencyGraph[nodeId][i];
-			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level === null || nodeInfo[childNodeId].level < nodeInfo[nodeId].level)
+			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level === null || (nodeInfo[childNodeId].level <= nodeInfo[nodeId].level && childNodeId != nodeId))
 			{
 				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
 				dfsStack.push(childNodeId);

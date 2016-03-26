@@ -254,14 +254,6 @@ function pivo_createCallGraph(entryPoint)
 		if (preferenceNameEllipsis > 0 && node.label.length > preferenceNameEllipsis)
 			node.label = node.label.substr(0, preferenceNameEllipsis) + '..';
 
-		if (typeof node.level === 'undefined' || node.level === null)
-		{
-			if (typeof entryPoint === 'undefined')
-				node.level = 0;
-			else
-				continue;
-		}
-		
 		nodeInfo[i].present = true;
 		presentNodes.push(node.id);
 	}
@@ -306,8 +298,17 @@ function pivo_createCallGraph(entryPoint)
 	var convNodes = [];
 	for (var i in nodeInfo)
 	{
-		if (nodeInfo[i].present)
-			convNodes.push(nodeInfo[i]);
+		var node = nodeInfo[i];
+		if (typeof node.level === 'undefined' || node.level === null)
+		{
+			if (typeof entryPoint === 'undefined')
+				node.level = 0;
+			else
+				continue;
+		}
+
+		if (node.present)
+			convNodes.push(node);
 	}
 
 	// push edges between existing and active graph nodes into graph edges array

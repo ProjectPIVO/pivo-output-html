@@ -171,6 +171,36 @@ function pivo_toolbarShow(filterclass, toolbarclass)
 	$('.toolbar-'+toolbarclass+'.'+filterclass).not('.opener').show();
 }
 
+function pivo_callGraph_expandSubtreeLevels(nodeId)
+{
+	if (nodeInfo[nodeId].hitCount > 10)
+		return;
+	nodeInfo[nodeId].hitCount++;
+
+	nodeInfo[nodeId].traversalState = 1;
+
+	for (var i in incidencyGraph[nodeId])
+	{
+		var childNodeId = incidencyGraph[nodeId][i];
+		if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level === null || (nodeInfo[childNodeId].level <= nodeInfo[nodeId].level && childNodeId != nodeId))
+		{
+			if (nodeInfo[childNodeId].traversalState != 1)
+			{
+				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
+				pivo_callGraph_expandSubtreeLevels(childNodeId);
+			}
+		}
+	}
+
+	nodeInfo[nodeId].traversalState = 2;
+}
+
+function pivo_callGraph_calculateSubtreeLevels(startNodes)
+{
+	for (var i in startNodes)
+		pivo_callGraph_expandSubtreeLevels(startNodes[i]);
+}
+
 function pivo_createCallGraph(entryPoint)
 {
 	// reset graph state
@@ -182,6 +212,8 @@ function pivo_createCallGraph(entryPoint)
 		nodeInfo[i].level = null;
 		// nullify hitcount
 		nodeInfo[i].hitCount = 0;
+		// reset traversal state
+		nodeInfo[i].traversalState = 0;
 	}
 
 	var container = document.getElementById('callgraph_canvas');
@@ -196,67 +228,11 @@ function pivo_createCallGraph(entryPoint)
 			filterConditions.push({ 'type': type, 'op': op, 'value': value });
 	});
 
-	// TODO: recursion
-	var dfsStack = [];
-
-	if (typeof entryPoint === 'undefined')
-	{
-		// find entry point candidates and push them onto stack
-		// 1. all functions with zero input degree (are not called throughout execution, just call others)
-		for (var i in reverseIncidencyGraph)
-		{
-			if (reverseIncidencyGraph[i].length == 0)
-				dfsStack.push(i);
-		}
-		// 2. functions called "main", and, for safeness reasons, greater output degree than input degree
-		for (var i in nodeInfo)
-		{
-			var nm = nodeInfo[i].name;
-			if (dfsStack.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length < incidencyGraph[i].length)
-				dfsStack.push(i);
-		}
-		// 3. fallback - when no node in DFS stack, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
-		if (dfsStack.length == 0)
-		{
-			// TODO: make this real
-		}
-	}
-	else
-	{
-		dfsStack.push(entryPoint);
-	}
-	
-	// for each node in DFS stack, set level = 0, because they're our root nodes
-	for (var i in dfsStack)
-		nodeInfo[dfsStack[i]].level = 0;
-
-	// DFS traversal for each node in stack
-	while (dfsStack.length > 0)
-	{
-		var nodeId = dfsStack.pop();
-
-		nodeInfo[nodeId].hitCount++;
-		
-		if (nodeInfo[nodeId].hitCount > 10)
-			continue;
-
-		for (var i in incidencyGraph[nodeId])
-		{
-			var childNodeId = incidencyGraph[nodeId][i];
-			if (typeof nodeInfo[childNodeId].level === 'undefined' || nodeInfo[childNodeId].level === null || (nodeInfo[childNodeId].level <= nodeInfo[nodeId].level && childNodeId != nodeId))
-			{
-				nodeInfo[childNodeId].level = nodeInfo[nodeId].level + 1;
-				dfsStack.push(childNodeId);
-			}
-		}
-	}
-
 	var preferenceNameEllipsis = parseInt($('.callgraph-preference-nameellipsis').val());
 	if (typeof preferenceNameEllipsis === 'undefined' || preferenceNameEllipsis == null)
 		preferenceNameEllipsis = 0;
 
 	var presentNodes = [];
-	var convNodes = [];
 	for (var i in nodeInfo)
 	{
 		var node = nodeInfo[i];
@@ -287,10 +263,54 @@ function pivo_createCallGraph(entryPoint)
 		}
 		
 		nodeInfo[i].present = true;
-		convNodes.push(node);
 		presentNodes.push(node.id);
 	}
+
+	// prepare start nodes
+	var startNodes = [];
+
+	if (typeof entryPoint === 'undefined')
+	{
+		// find entry point candidates and push them into array
+		// 1. all functions with zero input degree (are not called throughout execution, just call others)
+		for (var i in reverseIncidencyGraph)
+		{
+			if (nodeInfo[i].present && reverseIncidencyGraph[i].length == 0)
+				startNodes.push(i);
+		}
+		// 2. functions called "main", and, for safeness reasons, greater (or equal) output degree than input degree
+		for (var i in nodeInfo)
+		{
+			var nm = nodeInfo[i].name;
+			if (nodeInfo[i].present && startNodes.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length <= incidencyGraph[i].length)
+				startNodes.push(i);
+		}
+		// 3. fallback - when no node in start node array, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
+		if (startNodes.length == 0)
+		{
+			// TODO: make this real
+		}
+	}
+	else
+	{
+		startNodes.push(entryPoint);
+	}
 	
+	// for each node in DFS stack, set level = 0, because they're our root nodes
+	for (var i in startNodes)
+		nodeInfo[startNodes[i]].level = 0;
+
+	pivo_callGraph_calculateSubtreeLevels(startNodes);
+
+	// push active nodes into graph nodes array
+	var convNodes = [];
+	for (var i in nodeInfo)
+	{
+		if (nodeInfo[i].present)
+			convNodes.push(nodeInfo[i]);
+	}
+
+	// push edges between existing and active graph nodes into graph edges array
 	var convEdges = [];
 	for (var i in callGraphData)
 	{

@@ -174,7 +174,9 @@ function pivo_toolbarShow(filterclass, toolbarclass)
 
 function pivo_callGraph_expandSubtreeLevels(nodeId)
 {
-	if (nodeInfo[nodeId].hitCount > 10)
+	if (nodeInfo[nodeId].hitCount > 5)
+		return;
+	if (!nodeInfo[nodeId].present)
 		return;
 	nodeInfo[nodeId].hitCount++;
 
@@ -261,6 +263,24 @@ function pivo_createCallGraph(entryPoint)
 		nodeInfo[i].present = true;
 		presentNodes.push(node.id);
 	}
+	
+	// determine input and output degree based on incidencyGraph and reverseIncidencyGraph arrays, and "present" node field
+	for (var i in nodeInfo)
+	{
+		nodeInfo[i].inputDegree = 0;
+		nodeInfo[i].outputDegree = 0;
+		
+		for (var j in reverseIncidencyGraph[i])
+		{
+			if (nodeInfo[reverseIncidencyGraph[i][j]].present)
+				nodeInfo[i].inputDegree++;
+		}
+		for (var j in incidencyGraph[i])
+		{
+			if (nodeInfo[incidencyGraph[i][j]].present)
+				nodeInfo[i].outputDegree++;
+		}
+	}
 
 	// prepare start nodes
 	var startNodes = [];
@@ -269,36 +289,60 @@ function pivo_createCallGraph(entryPoint)
 
 	if (typeof entryPoint === 'undefined')
 	{
-		// find entry point candidates and push them into array
-		// 1. all functions with zero input degree (are not called throughout execution, just call others)
-		for (var i in reverseIncidencyGraph)
+		// keep resolving call graph hierarchy until every node is traversed
+		do
 		{
-			if (nodeInfo[i].present && reverseIncidencyGraph[i].length == 0 && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')))
-				startNodes.push(i);
-		}
-		// 2. functions called "main", and, for safeness reasons, greater (or equal) output degree than input degree
-		for (var i in nodeInfo)
-		{
-			var nm = nodeInfo[i].name;
-			if (nodeInfo[i].present && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')) && startNodes.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length <= incidencyGraph[i].length)
-				startNodes.push(i);
-		}
-		// 3. fallback - when no node in start node array, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
-		if (startNodes.length == 0)
-		{
-			// TODO: make this real
-		}
+			startNodes = [];
+			// find entry point candidates and push them into array
+			// 1. all functions with zero input degree (are not called throughout execution, just call others)
+			for (var i in reverseIncidencyGraph)
+			{
+				if (nodeInfo[i].present && nodeInfo[i].traversalState == 0 && nodeInfo[i].inputDegree == 0 && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')))
+					startNodes.push(i);
+			}
+			// 2. functions called "main", and, for safeness reasons, greater (or equal) output degree than input degree
+			for (var i in nodeInfo)
+			{
+				var nm = nodeInfo[i].name;
+				if (nodeInfo[i].present && nodeInfo[i].traversalState == 0 && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')) && startNodes.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && nodeInfo[i].inputDegree <= nodeInfo[i].outputDegree)
+					startNodes.push(i);
+			}
+			// 3. node with maximum output degree and minimum input degree
+			if (startNodes.length == 0)
+			{
+				var maxRatio = 0;
+				var maxRatioId = -1;
+				for (var i in nodeInfo)
+				{
+					if (nodeInfo[i].inputDegree == 0 || !nodeInfo[i].present || nodeInfo[i].traversalState !== 0 || (useTextEntryPoint && nodeInfo[i].functionType !== 't'))
+						continue;
+
+					var rt = nodeInfo[i].outputDegree / nodeInfo[i].inputDegree;
+					if (rt > maxRatio)
+					{
+						maxRatio = rt;
+						maxRatioId = i;
+					}
+				}
+				
+				if (maxRatioId > -1)
+					startNodes.push(maxRatioId);
+			}
+
+			pivo_callGraph_calculateSubtreeLevels(startNodes);
+		
+		} while (startNodes.length !== 0);
 	}
 	else
 	{
 		startNodes.push(entryPoint);
-	}
-	
-	// for each node in DFS stack, set level = 0, because they're our root nodes
-	for (var i in startNodes)
-		nodeInfo[startNodes[i]].level = 0;
+		
+		// for each node in start nodes, set level = 0, because they're our root nodes
+		for (var i in startNodes)
+			nodeInfo[startNodes[i]].level = 0;
 
-	pivo_callGraph_calculateSubtreeLevels(startNodes);
+		pivo_callGraph_calculateSubtreeLevels(startNodes);
+	}
 
 	// push active nodes into graph nodes array
 	var convNodes = [];
@@ -384,9 +428,10 @@ function pivo_createCallGraph(entryPoint)
 	if (hierarchyEnabled)
 	{
 		layoutOptions['hierarchical'] = {
+			enabled: true,
 			direction: 'UD',
 			sortMethod: 'directed',
-			nodeSpacing: graphNodeSpacing
+			nodeSpacing: graphNodeSpacing,
 		};
 	}
 	
@@ -405,10 +450,9 @@ function pivo_createCallGraph(entryPoint)
 			enabled: true,
 			stabilization: {
 				enabled: true,
-				iterations: 80000,
+				iterations: 5000,
 				updateInterval: 121
-			},
-//			avoidOverlap: 1,
+			}
 		},
 		edges: {
 			width: 2,
@@ -441,6 +485,7 @@ function pivo_createCallGraph(entryPoint)
 
 	network.once("stabilizationIterationsDone", function() {
 		$('#call-graph-loading').hide();
-		network.options.physics.enabled = false;
+		options.physics.enabled = false;
+		network.setOptions(options);
 	});
 }

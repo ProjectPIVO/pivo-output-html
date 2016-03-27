@@ -5,8 +5,8 @@
 function pivo_initCallGraphData()
 {
 	<#BEGIN CALL_GRAPH_DATA#>
-	pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLER_FLAT_TIME#>, <#RAWVALUE CALLER_FLAT_TIME_PCT#>, <#RAWVALUE CALLER_TOTAL_CALL_COUNT#>);
-	pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLEE_FLAT_TIME#>, <#RAWVALUE CALLEE_FLAT_TIME_PCT#>, <#RAWVALUE CALLEE_TOTAL_CALL_COUNT#>);
+	pivo_addCallGraphNode(<#RAWVALUE CALLER_ID#>, '<#JSVALUE CALLER_NAME#>', <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLER_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLER_FLAT_TIME#>, <#RAWVALUE CALLER_FLAT_TIME_PCT#>, <#RAWVALUE CALLER_TOTAL_CALL_COUNT#>, '<#JSVALUE CALLER_FUNCTION_TYPE#>');
+	pivo_addCallGraphNode(<#RAWVALUE CALLEE_ID#>, '<#JSVALUE CALLEE_NAME#>', <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME#>, <#RAWVALUE CALLEE_FLAT_INCLUSIVE_TIME_PCT#>, <#RAWVALUE CALLEE_FLAT_TIME#>, <#RAWVALUE CALLEE_FLAT_TIME_PCT#>, <#RAWVALUE CALLEE_TOTAL_CALL_COUNT#>, '<#JSVALUE CALLEE_FUNCTION_TYPE#>');
 	pivo_addCallGraphEdge(<#RAWVALUE CALLER_ID#>, <#RAWVALUE CALLEE_ID#>, <#RAWVALUE CALL_COUNT#>);
 	<#END CALL_GRAPH_DATA#>
 }
@@ -176,6 +176,14 @@ $(document).ready(function() {
 							<input type="checkbox" class="callgraph-preference-hierarchy" checked />
 						</td>
 					</tr>
+					<tr>
+						<td class="callgraph-preference-entry">
+							Entry point within .text:
+						</td>
+						<td class="callgraph-preference-entry">
+							<input type="checkbox" class="callgraph-preference-textentrypoint" checked />
+						</td>
+					</tr>
 				</table>
 
 				<button type="button" class="right" onclick="pivo_createCallGraph();">PROCEED</button>
@@ -183,6 +191,15 @@ $(document).ready(function() {
 			<div class="view-info">
 				Hover over node to show details<br/>
 				Double-click to set entry point
+			</div>
+			<div class="loading-dialog" id="call-graph-loading">
+				<div class="text">
+					Loading...
+				</div>
+				<div class="bar">
+					<div class="complete">
+					</div>
+				</div>
 			</div>
 		</div>
 

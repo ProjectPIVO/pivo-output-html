@@ -106,7 +106,7 @@ function escapeHtml(txt)
 	return $('<div>').text(txt).html();
 }
 
-function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusivePct, timeTotal, timeTotalPct, totalCallCount)
+function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusivePct, timeTotal, timeTotalPct, totalCallCount, fnctype)
 {
 	if (typeof nodeInfo[id] === 'undefined')
 	{
@@ -123,7 +123,8 @@ function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusiveP
 			'profTimeTotalExclusive': timeTotal,
 			'profTimeTotalExclusivePct': timeTotalPct,
 			'profTotalCallCount': totalCallCount,
-			'title': title
+			'title': title,
+			'functionType': fnctype
 		};
 
 		incidencyGraph[id] = [];
@@ -203,6 +204,9 @@ function pivo_callGraph_calculateSubtreeLevels(startNodes)
 
 function pivo_createCallGraph(entryPoint)
 {
+	$('#call-graph-loading').show();
+	$('#call-graph-loading .bar .complete').css({ width: 0 });
+
 	// reset graph state
 	for (var i in nodeInfo)
 	{
@@ -261,20 +265,22 @@ function pivo_createCallGraph(entryPoint)
 	// prepare start nodes
 	var startNodes = [];
 
+	var useTextEntryPoint = $('.callgraph-preference-textentrypoint').is(':checked');
+
 	if (typeof entryPoint === 'undefined')
 	{
 		// find entry point candidates and push them into array
 		// 1. all functions with zero input degree (are not called throughout execution, just call others)
 		for (var i in reverseIncidencyGraph)
 		{
-			if (nodeInfo[i].present && reverseIncidencyGraph[i].length == 0)
+			if (nodeInfo[i].present && reverseIncidencyGraph[i].length == 0 && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')))
 				startNodes.push(i);
 		}
 		// 2. functions called "main", and, for safeness reasons, greater (or equal) output degree than input degree
 		for (var i in nodeInfo)
 		{
 			var nm = nodeInfo[i].name;
-			if (nodeInfo[i].present && startNodes.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length <= incidencyGraph[i].length)
+			if (nodeInfo[i].present && (!useTextEntryPoint || (useTextEntryPoint && nodeInfo[i].functionType == 't')) && startNodes.indexOf(i) == -1 && (nm == "main" || nm == "WinMain" || nm == "__main" || nm == "_main") && reverseIncidencyGraph[i].length <= incidencyGraph[i].length)
 				startNodes.push(i);
 		}
 		// 3. fallback - when no node in start node array, attempt to make graph traversal to determine group of nodes, which should serve as start nodes to traverse whole graph
@@ -301,10 +307,10 @@ function pivo_createCallGraph(entryPoint)
 		var node = nodeInfo[i];
 		if (typeof node.level === 'undefined' || node.level === null)
 		{
-			if (typeof entryPoint === 'undefined')
-				node.level = 0;
-			else
+			if (typeof entryPoint !== 'undefined' || (useTextEntryPoint && node.functionType !== 't'))
 				continue;
+			else
+				node.level = 0;
 		}
 
 		if (node.present)
@@ -393,10 +399,19 @@ function pivo_createCallGraph(entryPoint)
 			borderWidth: 2
 		},
 		physics: {
-			enabled: false
+			enabled: true,
+			stabilization: {
+				enabled: true,
+				iterations: 80000,
+				updateInterval: 121
+			},
+//			avoidOverlap: 1,
 		},
 		edges: {
-			width: 2
+			width: 2,
+			smooth: {
+				type: 'dynamic'
+			}
 		},
 		interaction:  {
 			hover: true,
@@ -411,5 +426,18 @@ function pivo_createCallGraph(entryPoint)
 		{
 			pivo_createCallGraph(params.nodes[0]);
 		}
+	});
+
+	$('#call-graph-loading .bar .complete').css({ width: 0 });
+
+	network.on("stabilizationProgress", function(params) {
+		var wf = 100.0*params.iterations/params.total;
+		$('#call-graph-loading .bar .complete').css({ width: wf+'%' });
+		$('#call-graph-loading .text').text('Loading... '+params.iterations+'/'+params.total+' ('+Math.round(wf)+'%)');
+	});
+
+	network.once("stabilizationIterationsDone", function() {
+		$('#call-graph-loading').hide();
+		network.options.physics.enabled = false;
 	});
 }

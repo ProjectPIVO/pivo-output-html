@@ -638,6 +638,14 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
     {
         return m_data->functionTable[callee_id].name.c_str();
     }
+    else if (strcmp(identifier, "CALLER_FUNCTION_TYPE") == 0)
+    {
+        return std::string({ (char) m_data->functionTable[caller_id].functionType });
+    }
+    else if (strcmp(identifier, "CALLEE_FUNCTION_TYPE") == 0)
+    {
+        return std::string({ (char) m_data->functionTable[callee_id].functionType });
+    }
     else if (strcmp(identifier, "CALL_COUNT") == 0)
     {
         return std::to_string(m_data->callGraph[caller_id][callee_id]);

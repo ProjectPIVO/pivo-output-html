@@ -290,3 +290,36 @@ table.flatview td.nametd
 	bottom: 0.8em;
 	font-size: 7pt;
 }
+
+.loading-dialog
+{
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 400px;
+	margin-left: -200px;
+	margin-top: -45px;
+	padding: 15px;
+	overflow: auto;
+	background: #FFFFFF;
+}
+
+.loading-dialog .text
+{
+	width: 100%;
+	font-size: 10pt;
+	margin-bottom: 5px;
+}
+
+.loading-dialog .bar
+{
+	width: 100%;
+	height: 30px;
+	background: #DDDDDD;
+}
+
+.loading-dialog .bar .complete
+{
+	height: 100%;
+	background: #88FF88;
+}

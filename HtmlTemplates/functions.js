@@ -308,7 +308,10 @@ function pivo_createCallGraph(entryPoint)
 		if (typeof node.level === 'undefined' || node.level === null)
 		{
 			if (typeof entryPoint !== 'undefined' || (useTextEntryPoint && node.functionType !== 't'))
+			{
+				node.present = false;
 				continue;
+			}
 			else
 				node.level = 0;
 		}

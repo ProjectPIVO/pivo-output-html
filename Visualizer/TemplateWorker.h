@@ -3,6 +3,19 @@
 
 #include <set>
 
+// holder of chains for call tree visualization - temporary format
+struct CallTreeChainHolder
+{
+    // ID chain
+    std::string idChain;
+    // times chain
+    std::string timeChain;
+    // times percentage chain
+    std::string timePctChain;
+    // sample count chain
+    std::string sampleChain;
+};
+
 // sequence of characters, that starts recognized tag
 #define TAG_OPEN_SEQUENCE  "<#"
 // sequence of characters, that ends recognized tag
@@ -28,6 +41,7 @@ enum PHTokenBlockType
     PHBT_SUMMARY = 0,               // metadata, information about files, ..
     PHBT_FLAT_PROFILE = 1,          // flat view
     PHBT_CALL_GRAPH = 2,            // call graph data
+    PHBT_CALL_TREE = 3,             // call tree data
     MAX_PHBT
 };
 
@@ -90,6 +104,8 @@ class HtmlTemplateWorker
         void FillFlatProfileBlock(FILE* outfile, PHToken* token);
         // fills call graph block
         void FillCallGraphBlock(FILE* outfile, PHToken* token);
+        // fills call graph block
+        void FillCallTreeBlock(FILE* outfile, PHToken* token);
         // fills summary block
         void FillSummaryBlock(FILE* outfile, PHToken* token);
 
@@ -104,6 +120,8 @@ class HtmlTemplateWorker
         std::string GetFlatProfileValue(FlatProfileRecord* rec, const char* identifier);
         // retrieves call graph value
         std::string GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier);
+        // retrieves call tree value
+        std::string GetCallTreeValue(CallTreeChainHolder& src, const char* identifier);
         // escapes string for output to HTML
         std::string EscapeHTML(const char* src);
         // escaped string for output to Javascript

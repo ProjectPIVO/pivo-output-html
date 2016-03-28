@@ -234,6 +234,8 @@ PHToken* HtmlTemplateWorker::NextToken()
                 tok->blockType = PHBT_FLAT_PROFILE;
             else if (tokenidentifier == "CALL_GRAPH_DATA")
                 tok->blockType = PHBT_CALL_GRAPH;
+            else if (tokenidentifier == "CALL_TREE_DATA")
+                tok->blockType = PHBT_CALL_TREE;
             else
                 tok->blockType = MAX_PHBT;
         }
@@ -355,6 +357,96 @@ void HtmlTemplateWorker::FillCallGraphBlock(FILE* outfile, PHToken* token)
     }
 }
 
+void ReconstructReversePath(CallTreeNode* leaf, std::string &targetIds, std::string &targetTimes, std::string &targetTimesPct, std::string &targetSampleCounts)
+{
+    std::string tmp = "";
+    CallTreeNode* curr = leaf;
+    bool first = true;
+
+    std::string separator = ",";
+
+    targetIds = "";
+    targetTimes = "";
+    targetTimesPct = "";
+    targetSampleCounts = "";
+
+    while (curr != nullptr)
+    {
+        if (first)
+            first = false;
+        else
+        {
+            targetIds = separator + targetIds;
+            targetTimes = separator + targetTimes;
+            targetTimesPct = separator + targetTimesPct;
+            targetSampleCounts = separator + targetSampleCounts;
+        }
+
+        targetIds = std::to_string(curr->functionId) + targetIds;
+        targetTimes = std::to_string(curr->timeTotal) + targetTimes;
+        targetTimesPct = std::to_string(curr->timeTotalPct) + targetTimesPct;
+        targetSampleCounts = std::to_string(curr->sampleCount) + targetSampleCounts;
+
+        curr = curr->parent;
+    }
+}
+
+void HtmlTemplateWorker::FillCallTreeBlock(FILE* outfile, PHToken* token)
+{
+    PHToken* bltok;
+    std::string val;
+    CallTreeNode* curr;
+    std::stack<CallTreeNode*> dstack;
+
+    std::list<CallTreeChainHolder> callTreeChains;
+    std::string tmp1, tmp2, tmp3, tmp4;
+
+    for (auto itr : m_data->callTree)
+        dstack.push(itr.second);
+
+    while (!dstack.empty())
+    {
+        curr = dstack.top();
+        dstack.pop();
+
+        if (curr->children.size() == 0)
+        {
+            ReconstructReversePath(curr, tmp1, tmp2, tmp3, tmp4);
+            callTreeChains.push_back({ tmp1, tmp2, tmp3, tmp4 });
+        }
+        else
+        {
+            for (auto itr : curr->children)
+                dstack.push(itr.second);
+        }
+    }
+
+    for (CallTreeChainHolder& itr : callTreeChains)
+    {
+        for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
+        {
+            bltok = *iter;
+
+            switch (bltok->tokenType)
+            {
+                // text token (just copy contents)
+                case PHTT_TEXT:
+                    WriteTextContent(outfile, bltok);
+                    break;
+                // call graph value
+                case PHTT_VALUE:
+                    val = EscapeStringByType(GetCallTreeValue(itr, bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
+                    fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                    break;
+                // block - disallow nesting to this block type
+                case PHTT_BLOCK:
+                    LogFunc(LOG_ERROR, "No blocks could be nested into calltree block!");
+                    break;
+            }
+        }
+    }
+}
+
 void HtmlTemplateWorker::FillSummaryBlock(FILE* outfile, PHToken* token)
 {
     PHToken* bltok;
@@ -430,6 +522,10 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
                     // call graph
                     case PHBT_CALL_GRAPH:
                         FillCallGraphBlock(outfile, tok);
+                        break;
+                    // call tree
+                    case PHBT_CALL_TREE:
+                        FillCallTreeBlock(outfile, tok);
                         break;
                 }
                 break;
@@ -765,6 +861,28 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
             out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusive;
             return out.str();
         }
+    }
+
+    return "<Unknown>";
+}
+
+std::string HtmlTemplateWorker::GetCallTreeValue(CallTreeChainHolder& src, const char* identifier)
+{
+    if (strcmp(identifier, "ID_CHAIN") == 0)
+    {
+        return src.idChain;
+    }
+    else if (strcmp(identifier, "TIME_CHAIN") == 0)
+    {
+        return src.timeChain;
+    }
+    else if (strcmp(identifier, "TIME_PCT_CHAIN") == 0)
+    {
+        return src.timePctChain;
+    }
+    else if (strcmp(identifier, "SAMPLE_COUNT_CHAIN") == 0)
+    {
+        return src.sampleChain;
     }
 
     return "<Unknown>";

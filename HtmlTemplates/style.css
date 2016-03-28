@@ -283,6 +283,16 @@ table.flatview td.nametd
 	cursor: pointer;
 }
 
+.call-tree-row
+{
+	padding: 0.5em 0.5em 0.5em 3em;
+	cursor: pointer;
+}
+.call-tree-row.root-node
+{
+	padding: 0.5em 0.5em 0.5em 0.5em;
+}
+
 .view-info
 {
 	position: absolute;

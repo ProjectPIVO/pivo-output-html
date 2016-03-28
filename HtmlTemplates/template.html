@@ -11,10 +11,19 @@ function pivo_initCallGraphData()
 	<#END CALL_GRAPH_DATA#>
 }
 
+function pivo_initCallTreeData()
+{
+	<#BEGIN CALL_TREE_DATA#>
+	pivo_addCallTreeChain('<#RAWVALUE ID_CHAIN#>', '<#RAWVALUE TIME_CHAIN#>', '<#RAWVALUE TIME_PCT_CHAIN#>', '<#RAWVALUE SAMPLE_COUNT_CHAIN#>');
+	<#END CALL_TREE_DATA#>
+}
+
 $(document).ready(function() {
 	pivo_createFlatView();
 	pivo_initCallGraphData();
+	pivo_initCallTreeData();
 	pivo_createCallGraph();
+	pivo_createCallTree();
 	
 	$('.report-tab-content').addClass('hidden');
 	$('.report-tab-content').first().removeClass('hidden');
@@ -30,6 +39,7 @@ $(document).ready(function() {
 			<div class="report-tab" id="report-tab-menu--basic-info" onclick="pivo_selectTab('basic-info');">BASIC INFO</div>
 			<div class="report-tab" id="report-tab-menu--flat-view" onclick="pivo_selectTab('flat-view');">FLAT PROFILE</div>
 			<div class="report-tab" id="report-tab-menu--call-graph" onclick="pivo_selectTab('call-graph');">CALL GRAPH</div>
+			<div class="report-tab" id="report-tab-menu--call-tree" onclick="pivo_selectTab('call-tree');">CALL TREE</div>
 		</div>
 	</div>
 	
@@ -201,6 +211,13 @@ $(document).ready(function() {
 					</div>
 				</div>
 			</div>
+		</div>
+
+		<div class="report-tab-content padded" id="report-tab--call-tree">
+
+			<div id="call-tree-target">
+			</div>
+
 		</div>
 
 	</div>

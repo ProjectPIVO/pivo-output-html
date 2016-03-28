@@ -101,6 +101,9 @@ var incidencyGraph = {
 var reverseIncidencyGraph = {
 };
 
+var callTree = {
+};
+
 function escapeHtml(txt)
 {
 	return $('<div>').text(txt).html();
@@ -130,6 +133,126 @@ function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusiveP
 		incidencyGraph[id] = [];
 		reverseIncidencyGraph[id] = [];
 	}
+}
+
+function pivo_createCallTreeNode(id, time, timepct, samples)
+{
+	return {
+		'id': id,
+		'timeTotal': parseFloat(time),
+		'timeTotalPct': parseFloat(timepct),
+		'sampleCount': parseFloat(samples),
+		'children': { }
+	};
+}
+
+function pivo_addCallTreeChain(idchain, timechain, timepctchain, samplecountchain)
+{
+	var ids = idchain.split(',');
+	var times = timechain.split(',');
+	var timepcts = timepctchain.split(',');
+	var samples = samplecountchain.split(',');
+
+	if (ids.length === 0)
+		return;
+
+	if (ids.length !== times.length || ids.length !== timepcts.length || ids.length !== samples.length)
+		return;
+
+	if (typeof callTree[ids[0]] === 'undefined')
+		callTree[ids[0]] = pivo_createCallTreeNode(ids[0], times[0], timepcts[0], samples[0]);
+
+	var curr = callTree[ids[0]];
+	for (var i = 1; i < ids.length; i++)
+	{
+		if (typeof curr.children[ids[i]] === 'undefined')
+			curr.children[ids[i]] = pivo_createCallTreeNode(ids[i], times[i], timepcts[i], samples[i]);
+
+		curr = curr.children[ids[i]];
+	}
+}
+
+function pivo_createCallTreeRow(record, path, isroot)
+{
+	var classes = "call-tree-row" + (isroot ? " root-node" : "");
+	var name = ((typeof nodeInfo[record.id] === 'undefined') ? "??" : nodeInfo[record.id].name);
+
+	var r, g, b;
+	b = 0;
+	if (record.timeTotalPct > 0.5)
+	{
+		r = 255;
+		g = rangeAlignColor(Math.floor(255 * (0.5 - (record.timeTotalPct - 0.5)) * 2));
+	}
+	else
+	{
+		r = rangeAlignColor(Math.ceil(255 * record.timeTotalPct * 2));
+		g = 255;
+	}
+	var color = pivo_getHexColor(r, g, b);
+	
+	return '<div class="'+classes+'" style="background-color: '+color+'" data-path="'+path+'" onclick="pivo_expandCallTree(this, event);">'+name+' ('+record.timeTotal+')</div>';
+}
+
+function pivo_callTreeSortChildren(arr)
+{
+	var sorted = [];
+	var present = [];
+
+	for (var i in arr)
+	{
+		var max = 0.0;
+		var maxId = -1;
+		for (var j in arr)
+		{
+			if (present.indexOf(j) !== -1 || arr[j].timeTotal < max)
+				continue;
+			max = arr[j].timeTotal;
+			maxId = j;
+		}
+
+		sorted.push(arr[maxId]);
+		present.push(maxId);
+	}
+
+	return sorted;
+}
+
+function pivo_createCallTree()
+{
+	var sorted = pivo_callTreeSortChildren(callTree);
+
+	for (var i in sorted)
+	{
+		$('#call-tree-target').append(pivo_createCallTreeRow(sorted[i], sorted[i].id, true));
+	}
+}
+
+function pivo_expandCallTree(elem, event)
+{
+	event.stopPropagation();
+	event.preventDefault();
+
+	if ($(elem).data('expanded') === '1')
+	{
+		$(elem).children('.call-tree-row').remove();
+		$(elem).data('expanded', '0');
+		return;
+	}
+
+	var path = ""+$(elem).data('path');
+	var pathIds = path.split(',');
+
+	var curr = callTree[pathIds[0]];
+	for (var i = 1; i < pathIds.length; i++)
+		curr = curr.children[pathIds[i]];
+
+	var sorted = pivo_callTreeSortChildren(curr.children);
+
+	for (var i in sorted)
+		$(elem).append(pivo_createCallTreeRow(sorted[i], path+','+sorted[i].id));
+
+	$(elem).data('expanded', '1');
 }
 
 function pivo_addCallGraphEdge(source, dest, callCount)

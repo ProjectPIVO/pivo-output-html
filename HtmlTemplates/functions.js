@@ -104,6 +104,8 @@ var reverseIncidencyGraph = {
 var callTree = {
 };
 
+var callTreeMaxTime = 0.0;
+
 function escapeHtml(txt)
 {
 	return $('<div>').text(txt).html();
@@ -179,14 +181,15 @@ function pivo_createCallTreeRow(record, path, isroot)
 
 	var r, g, b;
 	b = 0;
-	if (record.timeTotalPct > 0.5)
+	var pctTime = record.timeTotalPct / callTreeMaxTime;
+	if (pctTime > 0.5)
 	{
 		r = 255;
-		g = rangeAlignColor(Math.floor(255 * (0.5 - (record.timeTotalPct - 0.5)) * 2));
+		g = rangeAlignColor(Math.floor(255 * (0.5 - (pctTime - 0.5)) * 2));
 	}
 	else
 	{
-		r = rangeAlignColor(Math.ceil(255 * record.timeTotalPct * 2));
+		r = rangeAlignColor(Math.ceil(255 * pctTime * 2));
 		g = 255;
 	}
 	var color = pivo_getHexColor(r, g, b);
@@ -195,11 +198,44 @@ function pivo_createCallTreeRow(record, path, isroot)
 	for (var i = 0; i < off; i++)
 		pcttxt = '&nbsp;' + pcttxt;
 
-	var pmb = (Object.keys(record.children).length > 0) ? "+" : "&nbsp;";
+	var chtime = 0.0;
+	var hasChildren = false;
+	if (Object.keys(record.children).length > 0)
+	{
+		hasChildren = true;
+		for (var i in record.children)
+			chtime += record.children[i].timeTotalPct;
+	}
+	else
+		chtime = record.timeTotalPct;
+
+	var exclTime = record.timeTotalPct - chtime;
+	if (exclTime < 0.0)
+		exclTime = 0.0;
+
+	pctTime = exclTime / record.timeTotalPct;
+	if (pctTime > 0.5)
+	{
+		r = 255;
+		g = rangeAlignColor(Math.floor(255 * (0.5 - (pctTime - 0.5)) * 2));
+	}
+	else
+	{
+		r = rangeAlignColor(Math.ceil(255 * pctTime * 2));
+		g = 255;
+	}
+	var excolor = pivo_getHexColor(r, g, b);
+	var pctextxt = hasChildren ? (100.0*exclTime).toFixed(2) : (100.0*record.timeTotalPct).toFixed(2);
+	off = 6 - pctextxt.length;
+	for (var i = 0; i < off; i++)
+		pctextxt = '&nbsp;' + pctextxt;
+
+	var pmb = hasChildren ? "+" : "&nbsp;";
 	
 	return '<div class="'+classes+'" data-path="'+path+'" onclick="pivo_expandCallTree(this, event);">'
 		+'<span class="call-tree-pmbox">'+pmb+'</span>'
 		+'<span class="call-tree-pctbox" style="background-color: '+color+'">'+pcttxt+'%</span>'
+		+'<span class="call-tree-pctbox-ex" style="border-color: '+excolor+'">'+pctextxt+'%</span>'
 		+'<span class="call-tree-txtbox">'+name+'</span>'
 		+'</div>';
 }
@@ -231,6 +267,8 @@ function pivo_callTreeSortChildren(arr)
 function pivo_createCallTree()
 {
 	var sorted = pivo_callTreeSortChildren(callTree);
+	if (sorted.length > 0)
+		callTreeMaxTime = sorted[0].timeTotalPct;
 
 	for (var i in sorted)
 	{

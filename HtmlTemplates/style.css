@@ -16,6 +16,12 @@ body, table, select, input[type=text]
 	margin: 0;
 }
 
+.clr
+{
+	width: 100%;
+	clear: both;
+}
+
 .vis-network-tooltip
 {
 	font-size: 8pt !important;
@@ -286,6 +292,7 @@ table.flatview td.nametd
 .call-tree-info
 {
 	margin: 0.5em;
+	font-size: 8pt;
 	overflow: auto;
 }
 #call-tree-target
@@ -332,6 +339,7 @@ table.flatview td.nametd
 	border: 0.3em solid transparent;
 	border-radius: 4px;
 	font-size: 8pt;
+	padding-top: 0.075em;
 
 	margin: 0 0.3em 0 0.3em;
 }

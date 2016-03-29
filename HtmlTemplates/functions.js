@@ -175,7 +175,7 @@ function pivo_addCallTreeChain(idchain, timechain, timepctchain, samplecountchai
 function pivo_createCallTreeRow(record, path, isroot)
 {
 	var classes = "call-tree-row" + (isroot ? " root-node" : "");
-	var name = ((typeof nodeInfo[record.id] === 'undefined') ? "??" : nodeInfo[record.id].name);
+	var name = escapeHtml(((typeof nodeInfo[record.id] === 'undefined') ? "??" : nodeInfo[record.id].name));
 
 	var r, g, b;
 	b = 0;
@@ -190,8 +190,18 @@ function pivo_createCallTreeRow(record, path, isroot)
 		g = 255;
 	}
 	var color = pivo_getHexColor(r, g, b);
+	var pcttxt = (100.0*record.timeTotalPct).toFixed(2);
+	var off = 6 - pcttxt.length;
+	for (var i = 0; i < off; i++)
+		pcttxt = '&nbsp;' + pcttxt;
+
+	var pmb = (Object.keys(record.children).length > 0) ? "+" : "&nbsp;";
 	
-	return '<div class="'+classes+'" style="background-color: '+color+'" data-path="'+path+'" onclick="pivo_expandCallTree(this, event);">'+name+' ('+record.timeTotal+')</div>';
+	return '<div class="'+classes+'" data-path="'+path+'" onclick="pivo_expandCallTree(this, event);">'
+		+'<span class="call-tree-pmbox">'+pmb+'</span>'
+		+'<span class="call-tree-pctbox" style="background-color: '+color+'">'+pcttxt+'%</span>'
+		+'<span class="call-tree-txtbox">'+name+'</span>'
+		+'</div>';
 }
 
 function pivo_callTreeSortChildren(arr)
@@ -237,6 +247,7 @@ function pivo_expandCallTree(elem, event)
 	{
 		$(elem).children('.call-tree-row').remove();
 		$(elem).data('expanded', '0');
+		$(elem).children('.call-tree-pmbox').html('+');
 		return;
 	}
 
@@ -247,12 +258,27 @@ function pivo_expandCallTree(elem, event)
 	for (var i = 1; i < pathIds.length; i++)
 		curr = curr.children[pathIds[i]];
 
+	if (Object.keys(curr.children).length == 0)
+		return;
+
+	var vingl = $('<div class="call-tree-vingl"></div>');
+
 	var sorted = pivo_callTreeSortChildren(curr.children);
+	var fpass = true;
 
 	for (var i in sorted)
-		$(elem).append(pivo_createCallTreeRow(sorted[i], path+','+sorted[i].id));
+	{
+		var ins = $(pivo_createCallTreeRow(sorted[i], path+','+sorted[i].id));
+		if (fpass)
+		{
+			ins.append(vingl);
+			fpass = false;
+		}
+		$(elem).append(ins);
+	}
 
 	$(elem).data('expanded', '1');
+	$(elem).children('.call-tree-pmbox').html('-');
 }
 
 function pivo_addCallGraphEdge(source, dest, callCount)

@@ -368,7 +368,7 @@ function pivo_addCallGraphEdge(source, dest, callCount)
 	reverseIncidencyGraph[dest].push(source);
 }
 
-function pivo_createFlameGraph()
+function pivo_createFlameGraph(basePath)
 {
 	var borderWidth = 1;
 	var boxh = 20;
@@ -377,32 +377,59 @@ function pivo_createFlameGraph()
 	var fullh = $('#flame-graph-target').outerHeight();
 	var baseleft = fullw * 0.1;
 
+	// reset width and height, just to be sure
 	$('#flame-graph-target').attr('width', fullw);
 	$('#flame-graph-target').attr('height', fullh);
-	
+
+	// cut some margin
 	fullw -= baseleft * 2;
-	
+
 	var c = document.getElementById("flame-graph-target");
+	c.innerHTML = '';
 	var svgDoc = c.ownerDocument;
 
+	// first line to begin generating flame graph from (entry points)
 	var baseline = (boxh + spaceh) * (callTreeMaxDepth + 1);
-	
+
 	var iterStack = [];
 	var bl = baseleft;
-	for (var i in callTree)
+
+	// if the path is not specified, generate whole view
+	if (typeof basePath === 'undefined')
 	{
-		callTree[i].flameGraphPath = i;
-		callTree[i].flameGraphLeft = bl;
-		callTree[i].flameGraphWidth = Math.round(fullw * callTree[i].timeTotalPct);
-		bl += Math.round(fullw * callTree[i].timeTotalPct);
-		iterStack.push(callTree[i]);
+		for (var i in callTree)
+		{
+			callTree[i].flameGraphPath = i;
+			callTree[i].flameGraphLeft = bl;
+			callTree[i].flameGraphWidth = Math.round(fullw * callTree[i].timeTotalPct);
+			bl += Math.round(fullw * callTree[i].timeTotalPct);
+			iterStack.push(callTree[i]);
+		}
 	}
+	else // otherwise try to expand from clicked node
+	{
+		// expand path to desired start
+		var nodepath = basePath.split(',');
+		var curr = callTree[nodepath[0]];
+		for (var i = 1; i < nodepath.length; i++)
+			curr = curr.children[nodepath[i]];
+
+		// make this node expanded
+		curr.flameGraphPath = basePath;
+		curr.flameGraphLeft = bl;
+		curr.flameGraphWidth = fullw;
+
+		iterStack.push(curr);
+	}
+
+	// iterative BFS with level preservation needs arrays swapping
 	var tmpStack = [];
-	
+
 	while (iterStack.length != 0)
 	{
 		for (var i in iterStack)
 		{
+			// push our children to temporary stack
 			var bl = iterStack[i].flameGraphLeft;
 			for (var j in iterStack[i].children)
 			{
@@ -413,13 +440,15 @@ function pivo_createFlameGraph()
 				tmpStack.push(iterStack[i].children[j]);
 			}
 
+			// create element group with all needed info
 			var gr = svgDoc.createElementNS(svgns, 'g');
 			gr.setAttributeNS(null, 'call-tree-path', iterStack[i].flameGraphPath);
 			gr.setAttributeNS(null, 'nodeid', iterStack[i].id);
 			gr.setAttributeNS(null, 'samples', iterStack[i].sampleCount);
 			gr.setAttributeNS(null, 'time-total-inclusive', iterStack[i].timeTotal.toFixed(2));
 			gr.setAttributeNS(null, 'time-total-inclusive-pct', (100.0*iterStack[i].timeTotalPct).toFixed(2));
-			
+
+			// calculate exclusive time in this subtree
 			var chtime = 0.0, chtimepct = 0.0;
 			if (Object.keys(iterStack[i].children).length > 0)
 			{
@@ -438,10 +467,11 @@ function pivo_createFlameGraph()
 			var exclTimePct = iterStack[i].timeTotalPct - chtimepct;
 			if (exclTime < 0.0) exclTime = 0.0;
 			if (exclTimePct < 0.0) exclTimePct = 0.0;
-				
+
 			gr.setAttributeNS(null, 'time-total-exclusive', exclTime.toFixed(2));
 			gr.setAttributeNS(null, 'time-total-exclusive-pct', (100.0*exclTimePct).toFixed(2));
-			
+
+			// draw rectangle itself
 			var rect = svgDoc.createElementNS(svgns, 'rect');
 			rect.setAttributeNS(null, 'x', iterStack[i].flameGraphLeft);
 			rect.setAttributeNS(null, 'y', baseline);
@@ -451,12 +481,14 @@ function pivo_createFlameGraph()
 												'cursor:pointer;'+
 												'stroke:#FFE4BC; stroke-width:'+borderWidth+';');
 			gr.appendChild(rect);
-			
+
 			c.appendChild(gr);
-			
+
+			// generate text if the rectangle is sufficiently wide
 			var textel = null;
 			if (typeof nodeInfo[iterStack[i].id] !== 'undefined' && iterStack[i].flameGraphWidth > borderWidth*2 + boxh)
 			{
+				// create text element
 				textel = svgDoc.createElementNS(svgns, 'text');
 				textel.setAttributeNS(null, 'x', iterStack[i].flameGraphLeft + boxh *0.2);
 				textel.setAttributeNS(null, 'y', baseline + boxh*0.65);
@@ -467,19 +499,24 @@ function pivo_createFlameGraph()
 				textel.textContent = nodeInfo[iterStack[i].id].name;
 				gr.appendChild(textel);
 
+				// now verify text length
 				var sz = textel.getComputedTextLength();
 				var textRefSize = iterStack[i].flameGraphWidth - 2*boxh*0.2;
 
+				// and in case when the text is longer, shorten it
 				var initialRat = textRefSize/sz;
 				if (initialRat < 1.0)
 				{
+					// at first, shorten it using width ratio
 					textel.textContent = textel.textContent.substr(0, textel.textContent.length*initialRat - 3) + '...';
 					sz = textel.getComputedTextLength();
 					var safeness = 5;
+					// shorten more, if needed
 					while (sz > textRefSize)
 					{
 						textel.textContent = textel.textContent.substr(0, textel.textContent.length - 2 - 3) + '...';
 						sz = textel.getComputedTextLength();
+						// when safeness counter drops to zero, that means we didn't succeed
 						if (safeness-- <= 0)
 						{
 							textel.textContent = '';
@@ -487,16 +524,19 @@ function pivo_createFlameGraph()
 						}
 					}
 
+					// just three dots in name is meaningless, erase it
 					if (textel.textContent == '...')
 						textel.textContent = '';
 				}
 			}
 
+			// mouse enter event
 			$(gr).mouseenter(function() {
 				var nodename = '??';
 				if (typeof nodeInfo[$(this).attr('nodeid')] !== 'undefined')
 					nodename = nodeInfo[$(this).attr('nodeid')].name;
 
+				// show tooltip
 				floatingTooltip.show();
 				floatingTooltip.css('margin-top', '-6.5em');
 				floatingTooltip.html('<span class="fname">'+nodename+'</span><br />'+
@@ -504,15 +544,24 @@ function pivo_createFlameGraph()
 									 'Inclusive time: '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+'s)<br />'+
 									 'Exclusive time: '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+'s)');
 			});
+			// mouse leave event
 			$(gr).mouseleave(function() {
+				// hide and reset tooltip
 				floatingTooltip.hide();
 				floatingTooltip.css('margin-top', '');
 			});
+			// mouse click event
+			$(gr).click(function() {
+				// expand flame graph from point clicked
+				pivo_createFlameGraph($(this).attr('call-tree-path'));
+			});
 		}
-		
+
+		// swap stacks
 		iterStack = tmpStack;
 		tmpStack = [];
-		
+
+		// decrease baseline and generate next level
 		baseline -= (boxh + spaceh);
 	}
 }

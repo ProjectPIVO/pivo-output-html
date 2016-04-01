@@ -391,10 +391,39 @@ function pivo_callGraph_calculateSubtreeLevels(startNodes)
 		pivo_callGraph_expandSubtreeLevels(startNodes[i]);
 }
 
-function pivo_createCallGraph(entryPoint)
+function pivo_removeManualEntryPoint()
+{
+	$('.callgraph-preference-manualentry').val(-1);
+	pivo_createCallGraph();
+}
+
+function pivo_createCallGraph()
 {
 	$('#call-graph-loading').show();
 	$('#call-graph-loading .bar .complete').css({ width: 0 });
+	
+	var entryPoint;
+	var entrypointval = parseInt($('.callgraph-preference-manualentry').val());
+
+	if (entrypointval >= 0)
+	{
+		entryPoint = entrypointval;
+		
+		var nam = nodeInfo[entryPoint].name;
+		if (nam.length > 24)
+			nam = nam.substr(0, 24)+'...';
+		
+		$('.callgraph-preference-manualentry-name').text(nam);
+		$('.callgraph-preference-manualentry-name').attr('title', nodeInfo[entryPoint].name);
+		$('#callgraph-preference-remove-manualentry').show();
+	}
+	else
+	{
+		entryPoint = undefined;
+		$('.callgraph-preference-manualentry-name').text('-');
+		$('.callgraph-preference-manualentry-name').attr('title', 'Double click on node to set manual entry point');
+		$('#callgraph-preference-remove-manualentry').hide();
+	}
 
 	// reset graph state
 	for (var i in nodeInfo)
@@ -658,7 +687,8 @@ function pivo_createCallGraph(entryPoint)
 	network.on("doubleClick", function (params) {
 		if (typeof params.nodes !== 'undefined' && params.nodes.length === 1)
 		{
-			pivo_createCallGraph(params.nodes[0]);
+			$('.callgraph-preference-manualentry').val(params.nodes[0]);
+			pivo_createCallGraph();
 		}
 	});
 

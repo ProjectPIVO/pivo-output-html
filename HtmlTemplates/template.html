@@ -194,6 +194,16 @@ $(document).ready(function() {
 							<input type="checkbox" class="callgraph-preference-textentrypoint" checked />
 						</td>
 					</tr>
+					<tr>
+						<td class="callgraph-preference-entry">
+							Manual entry point:
+						</td>
+						<td class="callgraph-preference-entry">
+							<input type="hidden" class="callgraph-preference-manualentry" value="-1" />
+							<span class="callgraph-preference-manualentry-name">-</span>
+							<a href="javascript:void();" style="display: none;" id="callgraph-preference-remove-manualentry" onclick="pivo_removeManualEntryPoint();">✕</a>
+						</td>
+					</tr>
 				</table>
 
 				<button type="button" class="right" onclick="pivo_createCallGraph();">PROCEED</button>

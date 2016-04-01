@@ -24,6 +24,9 @@ $(document).ready(function() {
 	pivo_initCallTreeData();
 	pivo_createCallGraph();
 	pivo_createCallTree();
+	pivo_createFlameGraph();
+
+	pivo_initMouseTrack();
 	
 	$('.report-tab-content').addClass('hidden');
 	$('.report-tab-content').first().removeClass('hidden');
@@ -40,6 +43,7 @@ $(document).ready(function() {
 			<div class="report-tab" id="report-tab-menu--flat-view" onclick="pivo_selectTab('flat-view');">FLAT PROFILE</div>
 			<div class="report-tab" id="report-tab-menu--call-graph" onclick="pivo_selectTab('call-graph');">CALL GRAPH</div>
 			<div class="report-tab" id="report-tab-menu--call-tree" onclick="pivo_selectTab('call-tree');">CALL TREE</div>
+			<div class="report-tab" id="report-tab-menu--flame-graph" onclick="pivo_selectTab('flame-graph');">FLAME GRAPH</div>
 		</div>
 	</div>
 	
@@ -233,6 +237,13 @@ $(document).ready(function() {
 
 			<div id="call-tree-target">
 			</div>
+
+		</div>
+
+		<div class="report-tab-content padded" id="report-tab--flame-graph">
+
+			<svg id="flame-graph-target" style="width:100%;height:100%;">
+			</svg>
 
 		</div>
 

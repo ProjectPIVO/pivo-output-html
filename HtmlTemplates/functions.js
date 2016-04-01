@@ -1,4 +1,8 @@
 
+var svgns = "http://www.w3.org/2000/svg";
+var mouseX = 0, mouseY = 0;
+var floatingTooltip = null;
+
 var filterSourceFieldPredicates = {
 	'none': function(node) { return 0; },
 	'inclusive': function(node) { return node.profTimeTotalInclusive; },
@@ -25,6 +29,38 @@ function pivo_selectTab(identifier)
 	
 	$('#report-tab--'+identifier).removeClass('hidden');
 	$('#report-tab-menu--'+identifier).addClass('selected');
+}
+
+function pivo_initMouseTrack()
+{
+	function handleMouseMove(event) {
+		var dot, eventDoc, doc, body, pageX, pageY;
+		event = event || window.event;
+
+		if (event.pageX == null && event.clientX != null)
+		{
+			eventDoc = (event.target && event.target.ownerDocument) || document;
+			doc = eventDoc.documentElement;
+			body = eventDoc.body;
+
+			event.pageX = event.clientX +
+				(doc && doc.scrollLeft || body && body.scrollLeft || 0) -
+				(doc && doc.clientLeft || body && body.clientLeft || 0);
+			event.pageY = event.clientY +
+				(doc && doc.scrollTop  || body && body.scrollTop  || 0) -
+				(doc && doc.clientTop  || body && body.clientTop  || 0 );
+		}
+
+		mouseX = event.pageX;
+		mouseY = event.pageY;
+		
+		floatingTooltip.css({'position': 'absolute', 'top': mouseY, 'left': mouseX});
+	}
+
+	document.onmousemove = handleMouseMove;
+	floatingTooltip = $('<div class="custom-tooltip"></div>');
+	$('body').append(floatingTooltip);
+	floatingTooltip.hide();
 }
 
 function pivo_removeFilter(element)
@@ -105,6 +141,8 @@ var callTree = {
 };
 
 var callTreeMaxTime = 0.0;
+// maximum depth in call tree (used later for flame graph)
+var callTreeMaxDepth = 0;
 
 function escapeHtml(txt)
 {
@@ -160,6 +198,9 @@ function pivo_addCallTreeChain(idchain, timechain, timepctchain, samplecountchai
 
 	if (ids.length !== times.length || ids.length !== timepcts.length || ids.length !== samples.length)
 		return;
+		
+	if (ids.length > callTreeMaxDepth)
+		callTreeMaxDepth = ids.length;
 
 	if (typeof callTree[ids[0]] === 'undefined')
 		callTree[ids[0]] = pivo_createCallTreeNode(ids[0], times[0], timepcts[0], samples[0]);
@@ -325,6 +366,155 @@ function pivo_addCallGraphEdge(source, dest, callCount)
 
 	incidencyGraph[source].push(dest);
 	reverseIncidencyGraph[dest].push(source);
+}
+
+function pivo_createFlameGraph()
+{
+	var borderWidth = 1;
+	var boxh = 20;
+	var spaceh = 0;
+	var fullw = $('#flame-graph-target').outerWidth();
+	var fullh = $('#flame-graph-target').outerHeight();
+	var baseleft = fullw * 0.1;
+
+	$('#flame-graph-target').attr('width', fullw);
+	$('#flame-graph-target').attr('height', fullh);
+	
+	fullw -= baseleft * 2;
+	
+	var c = document.getElementById("flame-graph-target");
+	var svgDoc = c.ownerDocument;
+
+	var baseline = (boxh + spaceh) * (callTreeMaxDepth + 1);
+	
+	var iterStack = [];
+	var bl = baseleft;
+	for (var i in callTree)
+	{
+		callTree[i].flameGraphPath = i;
+		callTree[i].flameGraphLeft = bl;
+		callTree[i].flameGraphWidth = Math.round(fullw * callTree[i].timeTotalPct);
+		bl += Math.round(fullw * callTree[i].timeTotalPct);
+		iterStack.push(callTree[i]);
+	}
+	var tmpStack = [];
+	
+	while (iterStack.length != 0)
+	{
+		for (var i in iterStack)
+		{
+			var bl = iterStack[i].flameGraphLeft;
+			for (var j in iterStack[i].children)
+			{
+				iterStack[i].children[j].flameGraphPath = iterStack[i].flameGraphPath+','+iterStack[i].children[j].id;
+				iterStack[i].children[j].flameGraphLeft = bl;
+				iterStack[i].children[j].flameGraphWidth = Math.round(iterStack[i].flameGraphWidth * iterStack[i].children[j].timeTotalPct / iterStack[i].timeTotalPct);
+				bl += Math.round(iterStack[i].flameGraphWidth * iterStack[i].children[j].timeTotalPct / iterStack[i].timeTotalPct);
+				tmpStack.push(iterStack[i].children[j]);
+			}
+
+			var gr = svgDoc.createElementNS(svgns, 'g');
+			gr.setAttributeNS(null, 'call-tree-path', iterStack[i].flameGraphPath);
+			gr.setAttributeNS(null, 'nodeid', iterStack[i].id);
+			gr.setAttributeNS(null, 'samples', iterStack[i].sampleCount);
+			gr.setAttributeNS(null, 'time-total-inclusive', iterStack[i].timeTotal.toFixed(2));
+			gr.setAttributeNS(null, 'time-total-inclusive-pct', (100.0*iterStack[i].timeTotalPct).toFixed(2));
+			
+			var chtime = 0.0, chtimepct = 0.0;
+			if (Object.keys(iterStack[i].children).length > 0)
+			{
+				for (var j in iterStack[i].children)
+				{
+					chtime += iterStack[i].children[j].timeTotal;
+					chtimepct += iterStack[i].children[j].timeTotalPct;
+				}
+			}
+			else
+			{
+				chtime = iterStack[i].timeTotal;
+				chtimepct = iterStack[i].timeTotalPct;
+			}
+			var exclTime = iterStack[i].timeTotal - chtime;
+			var exclTimePct = iterStack[i].timeTotalPct - chtimepct;
+			if (exclTime < 0.0) exclTime = 0.0;
+			if (exclTimePct < 0.0) exclTimePct = 0.0;
+				
+			gr.setAttributeNS(null, 'time-total-exclusive', exclTime.toFixed(2));
+			gr.setAttributeNS(null, 'time-total-exclusive-pct', (100.0*exclTimePct).toFixed(2));
+			
+			var rect = svgDoc.createElementNS(svgns, 'rect');
+			rect.setAttributeNS(null, 'x', iterStack[i].flameGraphLeft);
+			rect.setAttributeNS(null, 'y', baseline);
+			rect.setAttributeNS(null, 'width', iterStack[i].flameGraphWidth);
+			rect.setAttributeNS(null, 'height', boxh);
+			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(Math.ceil(255*(0.7+0.3*Math.random())), Math.ceil(255*(0.3+0.4*Math.random())), 0)+';'+
+												'cursor:pointer;'+
+												'stroke:#FFE4BC; stroke-width:'+borderWidth+';');
+			gr.appendChild(rect);
+			
+			c.appendChild(gr);
+			
+			var textel = null;
+			if (typeof nodeInfo[iterStack[i].id] !== 'undefined' && iterStack[i].flameGraphWidth > borderWidth*2 + boxh)
+			{
+				textel = svgDoc.createElementNS(svgns, 'text');
+				textel.setAttributeNS(null, 'x', iterStack[i].flameGraphLeft + boxh *0.2);
+				textel.setAttributeNS(null, 'y', baseline + boxh*0.65);
+				textel.setAttributeNS(null, 'font-family', 'Courier New');
+				textel.setAttributeNS(null, 'font-size', Math.round(boxh*0.55));
+				textel.setAttributeNS(null, 'color', '#000000');
+				textel.setAttributeNS(null, 'style', 'cursor:pointer;');
+				textel.textContent = nodeInfo[iterStack[i].id].name;
+				gr.appendChild(textel);
+
+				var sz = textel.getComputedTextLength();
+				var textRefSize = iterStack[i].flameGraphWidth - 2*boxh*0.2;
+
+				var initialRat = textRefSize/sz;
+				if (initialRat < 1.0)
+				{
+					textel.textContent = textel.textContent.substr(0, textel.textContent.length*initialRat - 3) + '...';
+					sz = textel.getComputedTextLength();
+					var safeness = 5;
+					while (sz > textRefSize)
+					{
+						textel.textContent = textel.textContent.substr(0, textel.textContent.length - 2 - 3) + '...';
+						sz = textel.getComputedTextLength();
+						if (safeness-- <= 0)
+						{
+							textel.textContent = '';
+							break;
+						}
+					}
+
+					if (textel.textContent == '...')
+						textel.textContent = '';
+				}
+			}
+
+			$(gr).mouseenter(function() {
+				var nodename = '??';
+				if (typeof nodeInfo[$(this).attr('nodeid')] !== 'undefined')
+					nodename = nodeInfo[$(this).attr('nodeid')].name;
+
+				floatingTooltip.show();
+				floatingTooltip.css('margin-top', '-6.5em');
+				floatingTooltip.html('<span class="fname">'+nodename+'</span><br />'+
+									 'Sample count: '+$(this).attr('samples')+'<br />'+
+									 'Inclusive time: '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+'s)<br />'+
+									 'Exclusive time: '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+'s)');
+			});
+			$(gr).mouseleave(function() {
+				floatingTooltip.hide();
+				floatingTooltip.css('margin-top', '');
+			});
+		}
+		
+		iterStack = tmpStack;
+		tmpStack = [];
+		
+		baseline -= (boxh + spaceh);
+	}
 }
 
 function pivo_getHexColor(r, g, b)

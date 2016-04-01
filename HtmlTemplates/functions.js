@@ -182,7 +182,8 @@ function pivo_createCallTreeNode(id, time, timepct, samples)
 		'timeTotal': parseFloat(time),
 		'timeTotalPct': parseFloat(timepct),
 		'sampleCount': parseFloat(samples),
-		'children': { }
+		'children': { },
+		'maxdepth': 1
 	};
 }
 
@@ -210,6 +211,9 @@ function pivo_addCallTreeChain(idchain, timechain, timepctchain, samplecountchai
 	{
 		if (typeof curr.children[ids[i]] === 'undefined')
 			curr.children[ids[i]] = pivo_createCallTreeNode(ids[i], times[i], timepcts[i], samples[i]);
+			
+		if (curr.maxdepth < ids.length - i)
+			curr.maxdepth = ids.length - i;
 
 		curr = curr.children[ids[i]];
 	}
@@ -379,7 +383,6 @@ function pivo_createFlameGraph(basePath)
 
 	// reset width and height, just to be sure
 	$('#flame-graph-target').attr('width', fullw);
-	$('#flame-graph-target').attr('height', fullh);
 
 	// cut some margin
 	fullw -= baseleft * 2;
@@ -388,11 +391,9 @@ function pivo_createFlameGraph(basePath)
 	c.innerHTML = '';
 	var svgDoc = c.ownerDocument;
 
-	// first line to begin generating flame graph from (entry points)
-	var baseline = (boxh + spaceh) * (callTreeMaxDepth + 1);
-
 	var iterStack = [];
 	var bl = baseleft;
+	var refDepth = callTreeMaxDepth;
 
 	// if the path is not specified, generate whole view
 	if (typeof basePath === 'undefined')
@@ -411,6 +412,7 @@ function pivo_createFlameGraph(basePath)
 		// expand path to desired start
 		var nodepath = basePath.split(',');
 		var curr = callTree[nodepath[0]];
+		refDepth = curr.maxdepth;
 		for (var i = 1; i < nodepath.length; i++)
 			curr = curr.children[nodepath[i]];
 
@@ -421,6 +423,13 @@ function pivo_createFlameGraph(basePath)
 
 		iterStack.push(curr);
 	}
+
+	// first line to begin generating flame graph from (entry points)
+	var baseline = (boxh + spaceh) * (refDepth + 1);
+	
+	fullh = baseline + boxh;
+	$('#flame-graph-target').height(fullh);
+	$('#flame-graph-target').css('height', fullh+"px");
 
 	// iterative BFS with level preservation needs arrays swapping
 	var tmpStack = [];
@@ -539,7 +548,7 @@ function pivo_createFlameGraph(basePath)
 				// show tooltip
 				floatingTooltip.show();
 				floatingTooltip.css('margin-top', '-6.5em');
-				floatingTooltip.html('<span class="fname">'+nodename+'</span><br />'+
+				floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />'+
 									 'Sample count: '+$(this).attr('samples')+'<br />'+
 									 'Inclusive time: '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+'s)<br />'+
 									 'Exclusive time: '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+'s)');

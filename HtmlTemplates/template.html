@@ -19,6 +19,9 @@ function pivo_initCallTreeData()
 }
 
 $(document).ready(function() {
+
+	pivo_initUnits('<#JSVALUE PROFILING_UNIT_SHORT#>', '<#JSVALUE PROFILING_UNIT_TITLE#>', '<#JSVALUE PROFILING_UNIT_TITLE_SUB#>', <#RAWVALUE PROFILING_UNIT_DECIMALS#>);
+
 	pivo_createFlatView();
 	pivo_initCallGraphData();
 	pivo_initCallTreeData();
@@ -76,10 +79,10 @@ $(document).ready(function() {
 				<div class="flatview-filter-entry original">
 					<select class="flatview-filter-type">
 						<option value="none">None</option>
-						<option value="inclusive">Inclusive time</option>
-						<option value="inclusive-pct" selected>Inclusive time [%]</option>
-						<option value="exclusive">Exclusive time</option>
-						<option value="exclusive-pct">Exclusive time [%]</option>
+						<option value="inclusive">Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
+						<option value="inclusive-pct" selected>Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</option>
+						<option value="exclusive">Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
+						<option value="exclusive-pct">Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</option>
 						<option value="callcount">Call count</option>
 					</select>
 					<select class="flatview-filter-operator">
@@ -101,10 +104,10 @@ $(document).ready(function() {
 			<table class="flatview">
 				<thead>
 					<tr>
-						<th class="sort-float sorted-by">Time [%]</th>
-						<th class="sort-float">Time [s]</th>
-						<th class="sort-float">Inclusive&nbsp;time [%]</th>
-						<th class="sort-float">Inclusive&nbsp;time [s]</th>
+						<th class="sort-float sorted-by"><#VALUE PROFILING_UNIT_TITLE#> [%]</th>
+						<th class="sort-float"><#VALUE PROFILING_UNIT_TITLE#> [<#VALUE PROFILING_UNIT_SHORT#>]</th>
+						<th class="sort-float">Inclusive&nbsp;<#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</th>
+						<th class="sort-float">Inclusive&nbsp;<#VALUE PROFILING_UNIT_TITLE_SUB#> [<#VALUE PROFILING_UNIT_SHORT#>]</th>
 						<th class="sort-int">Call&nbsp;count</th>
 						<th>Function&nbsp;name</th>
 					</tr>
@@ -138,10 +141,10 @@ $(document).ready(function() {
 				<div class="callgraph-filter-entry original">
 					<select class="callgraph-filter-type">
 						<option value="none">None</option>
-						<option value="inclusive">Inclusive time</option>
-						<option value="inclusive-pct" selected>Inclusive time [%]</option>
-						<option value="exclusive">Exclusive time</option>
-						<option value="exclusive-pct">Exclusive time [%]</option>
+						<option value="inclusive">Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
+						<option value="inclusive-pct" selected>Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</option>
+						<option value="exclusive">Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
+						<option value="exclusive-pct">Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</option>
 						<option value="callcount">Call count</option>
 					</select>
 					<select class="callgraph-filter-operator">
@@ -166,11 +169,11 @@ $(document).ready(function() {
 						</td>
 						<td class="callgraph-preference-entry">
 							<select class="callgraph-preference-color-source">
-								<option value="inclusive-pct">Inclusive time</option>
-								<option value="exclusive-pct">Exclusive time</option>
+								<option value="inclusive-pct">Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
+								<option value="exclusive-pct">Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#></option>
 								<option value="callcount">Call count</option>
-								<option value="inclusive-exclusive-ratio">Inclusive/Exclusive time ratio</option>
-								<option value="exclusive-inclusive-ratio">Exclusive/Inclusive time ratio</option>
+								<option value="inclusive-exclusive-ratio">Inclusive/Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> ratio</option>
+								<option value="exclusive-inclusive-ratio">Exclusive/Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> ratio</option>
 							</select>
 						</td>
 					</tr>
@@ -232,7 +235,7 @@ $(document).ready(function() {
 			<div class="call-tree-info">
 				<span class="call-tree-pctbox" style="background-color: #ff9900;">INCLUSIVE</span><span class="call-tree-pctbox-ex" style="border-color: #ff9900;">EXCLUSIVE</span>
 				<div class="clr"></div>
-				Tree nodes with less than 0.01% of inclusive time were excluded
+				Tree nodes with less than 0.01% of inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> were excluded
 			</div>
 
 			<div id="call-tree-target">

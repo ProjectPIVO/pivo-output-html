@@ -494,6 +494,7 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
 {
     PHToken* tok;
     PHTokenList tmpTokens;
+    std::string val;
 
     // for each token in token source..
     for (std::list<PHToken*>::iterator itr = tokenSource.begin(); itr != tokenSource.end(); ++itr)
@@ -504,8 +505,17 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
         {
             // text token (just copy contents)
             case PHTT_TEXT:
+            {
                 WriteTextContent(outfile, tok);
                 break;
+            }
+            // global value
+            case PHTT_VALUE:
+            {
+                val = EscapeStringByType(GetGlobalValue(tok->textContent.c_str()).c_str(), (OutputEscapeType)tok->tokenParameter);
+                fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                break;
+            }
             // block type - choose handler function an call id
             case PHTT_BLOCK:
             {
@@ -560,6 +570,11 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
     FILE* outfile = fopen("index.html", "w");
 
     m_data = data;
+
+    if (m_data->profilingUnit < MAX_PU)
+        m_unitPrecision = profilingUnitPrecision[m_data->profilingUnit];
+    else
+        m_unitPrecision = 0;
 
     m_filesToCopy.clear();
 
@@ -685,7 +700,7 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     else if (strcmp(identifier, "TOTAL_TIME") == 0)
     {
         std::ostringstream out;
-        out << std::setprecision(2) << std::fixed << rec->timeTotal;
+        out << std::setprecision(m_unitPrecision) << std::fixed << rec->timeTotal;
         return out.str();
     }
     else if (strcmp(identifier, "PCT_INCLUSIVE_TIME") == 0)
@@ -697,7 +712,7 @@ std::string HtmlTemplateWorker::GetFlatProfileValue(FlatProfileRecord* rec, cons
     else if (strcmp(identifier, "TOTAL_INCLUSIVE_TIME") == 0)
     {
         std::ostringstream out;
-        out << std::setprecision(2) << std::fixed << rec->timeTotalInclusive;
+        out << std::setprecision(m_unitPrecision) << std::fixed << rec->timeTotalInclusive;
         return out.str();
     }
     else if (strcmp(identifier, "CALL_COUNT") == 0)
@@ -798,7 +813,7 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
                 continue;
 
             std::ostringstream out;
-            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotal;
+            out << std::setprecision(m_unitPrecision) << std::fixed << (*fpitr).timeTotal;
             return out.str();
         }
     }
@@ -810,7 +825,7 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
                 continue;
 
             std::ostringstream out;
-            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotal;
+            out << std::setprecision(m_unitPrecision) << std::fixed << (*fpitr).timeTotal;
             return out.str();
         }
     }
@@ -846,7 +861,7 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
                 continue;
 
             std::ostringstream out;
-            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusive;
+            out << std::setprecision(m_unitPrecision) << std::fixed << (*fpitr).timeTotalInclusive;
             return out.str();
         }
     }
@@ -858,7 +873,7 @@ std::string HtmlTemplateWorker::GetCallGraphValue(uint32_t caller_id, uint32_t c
                 continue;
 
             std::ostringstream out;
-            out << std::setprecision(2) << std::fixed << (*fpitr).timeTotalInclusive;
+            out << std::setprecision(m_unitPrecision) << std::fixed << (*fpitr).timeTotalInclusive;
             return out.str();
         }
     }
@@ -883,6 +898,60 @@ std::string HtmlTemplateWorker::GetCallTreeValue(CallTreeChainHolder& src, const
     else if (strcmp(identifier, "SAMPLE_COUNT_CHAIN") == 0)
     {
         return src.sampleChain;
+    }
+
+    return "<Unknown>";
+}
+
+std::string HtmlTemplateWorker::GetGlobalValue(const char* identifier)
+{
+    if (strcmp(identifier, "PROFILING_UNIT_SHORT") == 0)
+    {
+        switch (m_data->profilingUnit)
+        {
+            case PU_SAMPLES:
+                return ""; // samples does not have "dimension", they're just .. count
+            case PU_TIME:
+                return "s";
+            default:
+                return "?";
+        }
+    }
+    else if (strcmp(identifier, "PROFILING_UNIT_TITLE") == 0)
+    {
+        switch (m_data->profilingUnit)
+        {
+            case PU_SAMPLES:
+                return "Samples";
+            case PU_TIME:
+                return "Time";
+            default:
+                return "?";
+        }
+    }
+    else if (strcmp(identifier, "PROFILING_UNIT_TITLE_SUB") == 0)
+    {
+        switch (m_data->profilingUnit)
+        {
+            case PU_SAMPLES:
+                return "samples";
+            case PU_TIME:
+                return "time";
+            default:
+                return "?";
+        }
+    }
+    else if (strcmp(identifier, "PROFILING_UNIT_DECIMALS") == 0)
+    {
+        switch (m_data->profilingUnit)
+        {
+            case PU_SAMPLES:
+                return std::to_string(profilingUnitPrecision[PU_SAMPLES]);
+            case PU_TIME:
+                return std::to_string(profilingUnitPrecision[PU_TIME]);
+            default:
+                return "0";
+        }
     }
 
     return "<Unknown>";

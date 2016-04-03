@@ -3,6 +3,11 @@ var svgns = "http://www.w3.org/2000/svg";
 var mouseX = 0, mouseY = 0;
 var floatingTooltip = null;
 
+var profUnitShort = '';    // short name for profiling units (i.e. s for seconds, spl for samples, ..)
+var profUnitTitle = '';    // title of profiling units (i.e. Samples, Time, ..)
+var profUnitTitleSub = ''; // title of profiling units for use in context (i.e. samples, time, ..)
+var profUnitDecimals = 0;  // profiling units decimals
+
 var filterSourceFieldPredicates = {
 	'none': function(node) { return 0; },
 	'inclusive': function(node) { return node.profTimeTotalInclusive; },
@@ -29,6 +34,22 @@ function pivo_selectTab(identifier)
 	
 	$('#report-tab--'+identifier).removeClass('hidden');
 	$('#report-tab-menu--'+identifier).addClass('selected');
+}
+
+function pivo_initUnits(short, title, sub, decimals)
+{
+	profUnitShort = short;
+	profUnitTitle = title;
+	profUnitTitleSub = sub;
+	profUnitDecimals = decimals;
+}
+
+function pivo_profValue(val)
+{
+	if (profUnitDecimals > 0)
+		return val.toFixed(profUnitDecimals);
+	else
+		return Math.round(val);
 }
 
 function pivo_initMouseTrack()
@@ -154,8 +175,8 @@ function pivo_addCallGraphNode(id, name, timeTotalInclusive, timeTotalInclusiveP
 	if (typeof nodeInfo[id] === 'undefined')
 	{
 		var title = '<span class="fname">'+escapeHtml(name)+'</span><br/>'+
-			    'Inclusive time: '+timeTotalInclusivePct+'% ('+timeTotalInclusive+'s)<br/>'+
-			    'Exclusive time: '+timeTotalPct+'% ('+timeTotal+'s)<br/>'+
+			    'Inclusive '+profUnitTitleSub+': '+timeTotalInclusivePct+'% ('+timeTotalInclusive+''+profUnitShort+')<br/>'+
+			    'Exclusive '+profUnitTitleSub+': '+timeTotalPct+'% ('+timeTotal+''+profUnitShort+')<br/>'+
 			    'Call count: '+totalCallCount+'x';
 
 		nodeInfo[id] = {
@@ -454,7 +475,7 @@ function pivo_createFlameGraph(basePath)
 			gr.setAttributeNS(null, 'call-tree-path', iterStack[i].flameGraphPath);
 			gr.setAttributeNS(null, 'nodeid', iterStack[i].id);
 			gr.setAttributeNS(null, 'samples', iterStack[i].sampleCount);
-			gr.setAttributeNS(null, 'time-total-inclusive', iterStack[i].timeTotal.toFixed(2));
+			gr.setAttributeNS(null, 'time-total-inclusive', pivo_profValue(iterStack[i].timeTotal));
 			gr.setAttributeNS(null, 'time-total-inclusive-pct', (100.0*iterStack[i].timeTotalPct).toFixed(2));
 
 			// calculate exclusive time in this subtree
@@ -477,7 +498,7 @@ function pivo_createFlameGraph(basePath)
 			if (exclTime < 0.0) exclTime = 0.0;
 			if (exclTimePct < 0.0) exclTimePct = 0.0;
 
-			gr.setAttributeNS(null, 'time-total-exclusive', exclTime.toFixed(2));
+			gr.setAttributeNS(null, 'time-total-exclusive', pivo_profValue(exclTime));
 			gr.setAttributeNS(null, 'time-total-exclusive-pct', (100.0*exclTimePct).toFixed(2));
 
 			// draw rectangle itself
@@ -549,9 +570,8 @@ function pivo_createFlameGraph(basePath)
 				floatingTooltip.show();
 				floatingTooltip.css('margin-top', '-6.5em');
 				floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />'+
-									 'Sample count: '+$(this).attr('samples')+'<br />'+
-									 'Inclusive time: '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+'s)<br />'+
-									 'Exclusive time: '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+'s)');
+									 'Inclusive '+profUnitTitleSub+': '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+''+profUnitShort+')<br />'+
+									 'Exclusive '+profUnitTitleSub+': '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+''+profUnitShort+')');
 			});
 			// mouse leave event
 			$(gr).mouseleave(function() {

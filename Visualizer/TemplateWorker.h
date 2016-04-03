@@ -70,6 +70,11 @@ struct PHToken
     std::list<PHToken*> tokenContent;
 };
 
+static int profilingUnitPrecision[] = {
+    0, /* SAMPLES */
+    2  /* TIME */
+};
+
 // base path for templates
 #define PIVO_HTML_TEMPLATE_PATH     "HtmlTemplates/"
 // header template file
@@ -122,6 +127,8 @@ class HtmlTemplateWorker
         std::string GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier);
         // retrieves call tree value
         std::string GetCallTreeValue(CallTreeChainHolder& src, const char* identifier);
+        // get global value
+        std::string GetGlobalValue(const char* identifier);
         // escapes string for output to HTML
         std::string EscapeHTML(const char* src);
         // escaped string for output to Javascript
@@ -136,6 +143,7 @@ class HtmlTemplateWorker
         PHTokenList m_tokens;
         BufferedReader* m_fileReader;
         NormalizedData* m_data;
+        int m_unitPrecision;
 
         std::set<std::string> m_filesToCopy;
 };

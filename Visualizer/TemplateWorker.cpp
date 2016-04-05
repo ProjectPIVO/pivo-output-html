@@ -22,17 +22,20 @@ HtmlTemplateWorker::~HtmlTemplateWorker()
 
 bool HtmlTemplateWorker::CreateTemplate()
 {
-    // load header, body and footer
-    // TODO: allow customizing?
     return ParseTemplateFile(TEMPLATE_FILE_MAIN, m_tokens);
 }
 
 bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath, PHTokenList &dest)
 {
+    LogFunc(LOG_VERBOSE, "Parsing input file %s", filePath.c_str());
+
     // open file for reading
     FILE* f = fopen((std::string(PIVO_HTML_TEMPLATE_PATH) + filePath).c_str(), "r");
     if (!f)
+    {
+        LogFunc(LOG_ERROR, "Could not open template file %s", filePath.c_str());
         return false;
+    }
 
     dest.clear();
 
@@ -51,6 +54,8 @@ bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath, PHTokenList &de
         // if beginning new block
         if (curr->tokenType == PHTT_BLOCK)
         {
+            LogFunc(LOG_DEBUG, "Beginning block type %u", curr->blockType);
+
             // nested blocks - push onto stack
             if (block)
                 blockStack.push(block);
@@ -62,6 +67,8 @@ bool HtmlTemplateWorker::ParseTemplateFile(std::string filePath, PHTokenList &de
         // if ending block
         else if (curr->tokenType == PHTT_ENDBLOCK)
         {
+            LogFunc(LOG_DEBUG, "Ending block %u", curr->blockType);
+
             // there has to be a block to end
             if (!block)
             {
@@ -204,6 +211,7 @@ PHToken* HtmlTemplateWorker::NextToken()
     // when no tag opened, consider token as text token
     if (!istag)
     {
+        LogFunc(LOG_DEBUG, "Read text token, length %u", tok->textContent.size());
         tok->tokenType = PHTT_TEXT;
         tok->textContent = tokens;
     }
@@ -242,6 +250,8 @@ PHToken* HtmlTemplateWorker::NextToken()
         // recognize value tag - HTML escaped
         else if (tokenname == "VALUE")
         {
+            LogFunc(LOG_DEBUG, "Read value token, identifier: %s", tokenidentifier.c_str());
+
             tok->tokenType = PHTT_VALUE;
             tok->tokenParameter = ESCTYPE_HTML;
             tok->textContent = tokenidentifier.c_str();
@@ -249,6 +259,8 @@ PHToken* HtmlTemplateWorker::NextToken()
         // recognize value tag - Javascript escaped
         else if (tokenname == "JSVALUE")
         {
+            LogFunc(LOG_DEBUG, "Read jsvalue token, identifier: %s", tokenidentifier.c_str());
+
             tok->tokenType = PHTT_VALUE;
             tok->tokenParameter = ESCTYPE_JS;
             tok->textContent = tokenidentifier.c_str();
@@ -256,6 +268,8 @@ PHToken* HtmlTemplateWorker::NextToken()
         // recognize value tag - without escaping
         else if (tokenname == "RAWVALUE")
         {
+            LogFunc(LOG_DEBUG, "Read rawvalue token, identifier: %s", tokenidentifier.c_str());
+
             tok->tokenType = PHTT_VALUE;
             tok->tokenParameter = ESCTYPE_NONE;
             tok->textContent = tokenidentifier.c_str();
@@ -263,6 +277,8 @@ PHToken* HtmlTemplateWorker::NextToken()
         // include another file here
         else if (tokenname == "INCLUDE")
         {
+            LogFunc(LOG_DEBUG, "Read include token, identifier: %s", tokenidentifier.c_str());
+
             tok->tokenType = PHTT_INCLUDE;
             tok->tokenParameter = 0;
             tok->textContent = tokenidentifier.c_str();
@@ -270,6 +286,8 @@ PHToken* HtmlTemplateWorker::NextToken()
         // include another file in output directory
         else if (tokenname == "COPYFILE")
         {
+            LogFunc(LOG_DEBUG, "Read copyfile token, identifier: %s", tokenidentifier.c_str());
+
             tok->tokenType = PHTT_COPYFILE;
             tok->tokenParameter = 0;
             tok->textContent = tokenidentifier.c_str();
@@ -277,10 +295,10 @@ PHToken* HtmlTemplateWorker::NextToken()
         // consider anything else an error
         else
         {
+            LogFunc(LOG_WARNING, "Read unspecified token '%s'", tokenname.c_str());
+
             tok->tokenType = PHTT_TEXT;
             tok->textContent = tokens;
-
-            // TODO: warning?
         }
     }
 
@@ -291,6 +309,8 @@ void HtmlTemplateWorker::FillFlatProfileBlock(FILE* outfile, PHToken* token)
 {
     PHToken* bltok;
     std::string val;
+
+    LogFunc(LOG_VERBOSE, "Filling flat profile block");
 
     // go through all flat profile records...
     for (std::vector<FlatProfileRecord>::iterator fpitr = m_data->flatProfile.begin(); fpitr != m_data->flatProfile.end(); ++fpitr)
@@ -322,6 +342,8 @@ void HtmlTemplateWorker::FillFlatProfileBlock(FILE* outfile, PHToken* token)
 
 void HtmlTemplateWorker::FillCallGraphBlock(FILE* outfile, PHToken* token)
 {
+    LogFunc(LOG_VERBOSE, "Filling call graph block");
+
     PHToken* bltok;
     std::string val;
 
@@ -393,6 +415,8 @@ void ReconstructReversePath(CallTreeNode* leaf, std::string &targetIds, std::str
 
 void HtmlTemplateWorker::FillCallTreeBlock(FILE* outfile, PHToken* token)
 {
+    LogFunc(LOG_VERBOSE, "Filling call tree block");
+
     PHToken* bltok;
     std::string val;
     CallTreeNode* curr;
@@ -449,6 +473,8 @@ void HtmlTemplateWorker::FillCallTreeBlock(FILE* outfile, PHToken* token)
 
 void HtmlTemplateWorker::FillSummaryBlock(FILE* outfile, PHToken* token)
 {
+    LogFunc(LOG_VERBOSE, "Filling summary block");
+
     PHToken* bltok;
     std::string val;
 
@@ -492,6 +518,8 @@ void HtmlTemplateWorker::WriteTextContent(FILE* outfile, PHToken* token)
 
 void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSource)
 {
+    LogFunc(LOG_VERBOSE, "Processing new template file");
+
     PHToken* tok;
     PHTokenList tmpTokens;
     std::string val;
@@ -543,6 +571,8 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
             // include another file to this position
             case PHTT_INCLUDE:
             {
+                LogFunc(LOG_VERBOSE, "Including file %s", tok->textContent.c_str());
+
                 // if file parsing is successfull, fill this file with parsed tokens
                 if (ParseTemplateFile(tok->textContent, tmpTokens))
                     FillTemplateFile(outfile, tmpTokens);
@@ -553,6 +583,8 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
             // copy file from source directory to destination
             case PHTT_COPYFILE:
             {
+                LogFunc(LOG_VERBOSE, "Copying file %s to destination", tok->textContent.c_str());
+
                 // if the file is not already listed, insert it to set
                 if (m_filesToCopy.find(tok->textContent) == m_filesToCopy.end())
                     m_filesToCopy.insert(tok->textContent);
@@ -566,6 +598,8 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
 
 void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
 {
+    LogFunc(LOG_VERBOSE, "Beginning template worker procedure");
+
     // TODO: real output directory
     FILE* outfile = fopen("index.html", "w");
 
@@ -575,6 +609,8 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
         m_unitPrecision = profilingUnitPrecision[m_data->profilingUnit];
     else
         m_unitPrecision = 0;
+
+    LogFunc(LOG_VERBOSE, "Profiling unit precision: %i", m_unitPrecision);
 
     m_filesToCopy.clear();
 
@@ -586,6 +622,8 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
         CopyFileToDst(itr.c_str());
 
     fclose(outfile);
+
+    LogFunc(LOG_INFO, "Generating output finished");
 }
 
 void HtmlTemplateWorker::CopyFileToDst(const char* source)

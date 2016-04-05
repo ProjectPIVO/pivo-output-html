@@ -596,12 +596,27 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
     }
 }
 
-void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
+bool HtmlTemplateWorker::FillTemplate(NormalizedData* data)
 {
     LogFunc(LOG_VERBOSE, "Beginning template worker procedure");
 
-    // TODO: real output directory
-    FILE* outfile = fopen("index.html", "w");
+    // build output path
+    if (data->outputPath == UNDEFINED_STR)
+        data->outputPath = "";
+    else
+    {
+        m_outputPath = data->outputPath.c_str();
+        if (m_outputPath.size() > 0 && m_outputPath[m_outputPath.size() - 1] != '/')
+            m_outputPath = m_outputPath + "/";
+    }
+
+    FILE* outfile = fopen((m_outputPath + "index.html").c_str(), "w");
+
+    if (!outfile)
+    {
+        LogFunc(LOG_ERROR, "Could not open output file %s", (m_outputPath + "index.html").c_str());
+        return false;
+    }
 
     m_data = data;
 
@@ -624,13 +639,15 @@ void HtmlTemplateWorker::FillTemplate(NormalizedData* data)
     fclose(outfile);
 
     LogFunc(LOG_INFO, "Generating output finished");
+
+    return true;
 }
 
 void HtmlTemplateWorker::CopyFileToDst(const char* source)
 {
     std::ifstream src((std::string(PIVO_HTML_TEMPLATE_PATH) + std::string(source)).c_str(), std::ios::binary);
     // TODO: real output directory
-    std::ofstream dst(source, std::ios::binary);
+    std::ofstream dst((m_outputPath + source).c_str(), std::ios::binary);
 
     // check source file presence and validity
     if (src.bad() || src.fail())

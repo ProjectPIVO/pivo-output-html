@@ -96,7 +96,7 @@ class HtmlTemplateWorker
         bool CreateTemplate();
 
         // fills template with supplied data
-        void FillTemplate(NormalizedData* data);
+        bool FillTemplate(NormalizedData* data);
 
     protected:
         // Parses input template file and puts tokens to worker list (m_tokens)
@@ -144,6 +144,8 @@ class HtmlTemplateWorker
         BufferedReader* m_fileReader;
         NormalizedData* m_data;
         int m_unitPrecision;
+
+        std::string m_outputPath;
 
         std::set<std::string> m_filesToCopy;
 };

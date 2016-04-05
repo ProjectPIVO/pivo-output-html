@@ -18,7 +18,7 @@ class HtmlOutputModule : public OutputModule
         virtual const char* ReportVersion();
         virtual void ReportFeatures(OMF_SET &set);
 
-        virtual void VisualizeData(NormalizedData* data);
+        virtual bool VisualizeData(NormalizedData* data);
 
     protected:
         //

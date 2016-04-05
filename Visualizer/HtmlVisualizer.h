@@ -16,17 +16,14 @@ class HtmlVisualizer
         HtmlVisualizer();
         ~HtmlVisualizer();
 
-        // sets output path for resulting file(s)
-        void SetOutputPath(std::string path);
-
         // process input data
-        void ProcessData(NormalizedData* data);
+        bool ProcessData(NormalizedData* data);
 
     protected:
         //
 
     private:
-        std::string m_outputPath;
+        //
 };
 
 #endif

@@ -16,12 +16,7 @@ HtmlVisualizer::~HtmlVisualizer()
     //
 }
 
-void HtmlVisualizer::SetOutputPath(std::string path)
-{
-    m_outputPath = path;
-}
-
-void HtmlVisualizer::ProcessData(NormalizedData* data)
+bool HtmlVisualizer::ProcessData(NormalizedData* data)
 {
     HtmlTemplateWorker* m_worker = new HtmlTemplateWorker();
 
@@ -30,8 +25,8 @@ void HtmlVisualizer::ProcessData(NormalizedData* data)
     if (!m_worker->CreateTemplate())
     {
         LogFunc(LOG_ERROR, "Could not create template subsystem");
-        return;
+        return false;
     }
 
-    m_worker->FillTemplate(data);
+    return m_worker->FillTemplate(data);
 }

@@ -48,11 +48,9 @@ void HtmlOutputModule::ReportFeatures(OMF_SET &set)
     OMF_ADD(set, OMF_CALL_TREE);
 }
 
-void HtmlOutputModule::VisualizeData(NormalizedData* data)
+bool HtmlOutputModule::VisualizeData(NormalizedData* data)
 {
     m_visualizer = new HtmlVisualizer;
 
-    m_visualizer->SetOutputPath(data->outputPath.c_str());
-
-    m_visualizer->ProcessData(data);
+    return m_visualizer->ProcessData(data);
 }

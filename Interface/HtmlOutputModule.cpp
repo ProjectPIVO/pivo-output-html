@@ -66,6 +66,7 @@ void HtmlOutputModule::ReportFeatures(OMF_SET &set)
     // add features we support
     OMF_ADD(set, OMF_FLAT_PROFILE);
     OMF_ADD(set, OMF_CALL_TREE);
+    OMF_ADD(set, OMF_HEAT_MAP);
 }
 
 bool HtmlOutputModule::VisualizeData(NormalizedData* data)

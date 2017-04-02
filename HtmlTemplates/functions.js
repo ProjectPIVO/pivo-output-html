@@ -17,6 +17,8 @@ var filterSourceFieldPredicates = {
 	'callcount': function(node) { return node.profTotalCallCount; },
 	'inclusive-exclusive-ratio': function(node) { return (1.0+node.profTimeTotalInclusivePct)/(1.0+node.profTimeTotalExclusivePct); },
 	'exclusive-inclusive-ratio': function(node) { return -(1.0+node.profTimeTotalExclusivePct)/(1.0+node.profTimeTotalInclusivePct); },
+	'inclusive-exclusive-ratio-abs': function(node) { return (1.0+node.profTimeTotalInclusive)/(1.0+node.profTimeTotalExclusive); },
+	'exclusive-inclusive-ratio-abs': function(node) { return -(1.0+node.profTimeTotalExclusive)/(1.0+node.profTimeTotalInclusive); },
 };
 
 var filterOperatorPredicates = {
@@ -26,6 +28,17 @@ var filterOperatorPredicates = {
 	'lessequal': function(a,b) { return a <= b; },
 	'equals': function(a,b) { return a == b; }
 };
+
+var functionTable = {
+};
+
+function pivo_registerFunction(id, name, type)
+{
+	functionTable[id] = {
+		'name': name,
+		'type': type
+	};
+}
 
 function pivo_selectTab(identifier)
 {
@@ -143,6 +156,228 @@ function pivo_createFlatView()
 		$('.flatview th').removeClass('sorted-by');
 		$(this).addClass('sorted-by');
 	});
+}
+
+var heatMapHistograms = {
+};
+
+function pivo_addHistogramRecord(timeSegmentId, functionId, timeTotal, timeTotalInclusive)
+{
+	if (typeof heatMapHistograms[timeSegmentId] == 'undefined')
+		heatMapHistograms[timeSegmentId] = {};
+
+	heatMapHistograms[timeSegmentId][functionId] = {
+		'profTimeTotalExclusive': timeTotal,
+		'profTimeTotalInclusive': timeTotalInclusive
+	};
+}
+
+function pivo_createHeatMap()
+{
+	var minExTime = 0, minInTime = 0;
+	var maxExTime = null, maxInTime = null;
+	var minHeat = null, maxHeat = null;
+	var fncBitmap = {};
+	var fncCnt = 0;
+	var maxFuncId = 0;
+
+	// retrieve filter/preferences
+	var colPred = $('#heatmap-preference-color-source').val();
+	var textOnly = $('#heatmap-preference-textonly').is(':checked');
+
+	// determine limits and counts from entire heatmap
+	for (var segId in heatMapHistograms)
+	{
+		for (var funcId in heatMapHistograms[segId])
+		{
+			if (maxFuncId < funcId)
+				maxFuncId = funcId;
+
+			// filter out undefined and non-.text functions
+			if (typeof functionTable[funcId] == 'undefined' || (textOnly && functionTable[funcId].type != 't'))
+				continue;
+
+			if (minHeat == null || minHeat > filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]))
+				minHeat = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]);
+			if (maxHeat == null || maxHeat < filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]))
+				maxHeat = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]);
+
+			if (maxExTime == null || maxExTime < heatMapHistograms[segId][funcId].profTimeTotalExclusive)
+				maxExTime = heatMapHistograms[segId][funcId].profTimeTotalExclusive;
+
+			if (maxInTime == null || maxInTime < heatMapHistograms[segId][funcId].profTimeTotalInclusive)
+				maxInTime = heatMapHistograms[segId][funcId].profTimeTotalInclusive;
+
+			// fill function bitmap and determine final function count
+			if (typeof fncBitmap[funcId] == 'undefined')
+			{
+				fncCnt++;
+				fncBitmap[funcId] = funcId;
+			}
+		}
+	}
+	if (minExTime == null || maxExTime == null)
+		return;
+
+	// get "distances" to calculate percentages
+	var dist = maxExTime - minExTime;
+	var distIn = maxInTime - minInTime;
+	var distHeat = maxHeat - minHeat;
+
+	var c = document.getElementById("heat-map-target");
+	c.innerHTML = '';
+	var svgDoc = c.ownerDocument;
+
+	var boxWidth = 8;
+	var boxHeight = 15;
+	var strokeWidth = 1;
+
+	// resize containers, canvases, etc.
+	$('#heat-map-container').width((boxWidth) * Object.keys(heatMapHistograms).length);
+	$('#heat-map-container').height(boxHeight * fncCnt);
+	$('#heat-map-target').attr('width', (boxWidth + 2*strokeWidth) * Object.keys(heatMapHistograms).length);
+	$('#heat-map-target').attr('height', boxHeight * fncCnt);
+
+	$('#heat-map-funcbar').height(1 + boxHeight * fncCnt);
+	$('#heat-map-funcbar-target').attr('height', 1 + boxHeight * fncCnt);
+
+	var cF = document.getElementById("heat-map-funcbar-target");
+	cF.innerHTML = '';
+	var svgDocF = c.ownerDocument;
+
+	var funcbar_width = $('#heat-map-funcbar').outerWidth();
+
+	// draw background
+	var gr = svgDoc.createElementNS(svgns, 'g');
+	var rect = svgDoc.createElementNS(svgns, 'rect');
+	rect.setAttributeNS(null, 'x', 0);
+	rect.setAttributeNS(null, 'y', 0);
+	rect.setAttributeNS(null, 'width', $('#heat-map-target').width());
+	rect.setAttributeNS(null, 'height', $('#heat-map-target').height());
+	rect.setAttributeNS(null, 'style',  'fill: #FFFFFF;');
+
+	gr.appendChild(rect);
+	c.appendChild(gr);
+
+	for (var segId in heatMapHistograms)
+	{
+		var yoff = 0;
+
+		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		{
+			// function not in function bitmap, probably filtered out
+			if (typeof fncBitmap[funcId] == 'undefined')
+			{
+				yoff++;
+				continue;
+			}
+
+			// no record for function in current segment, or the value used to determine color is zero
+			if (typeof heatMapHistograms[segId][funcId] == 'undefined' || filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]) == 0)
+			{
+				// do not draw, leave blank (white (background), as it should be)
+				continue;
+			}
+			else
+			{
+				var total = heatMapHistograms[segId][funcId].profTimeTotalExclusive;
+				var totalIn = heatMapHistograms[segId][funcId].profTimeTotalInclusive;
+				var heat = (heatMapHistograms[segId][funcId].profTimeTotalExclusive - minExTime) / dist;
+				var heatIn = (heatMapHistograms[segId][funcId].profTimeTotalInclusive - minInTime) / distIn;
+
+				var heatColor = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]) / distHeat;
+			}
+
+			// create parent group and fill attributes
+			var gr = svgDoc.createElementNS(svgns, 'g');
+			gr.setAttributeNS(null, 'funcid', funcId);
+			gr.setAttributeNS(null, 'time-total-inclusive', totalIn);
+			gr.setAttributeNS(null, 'time-total-exclusive', total);
+			gr.setAttributeNS(null, 'time-total-inclusive-pct', heatIn*100);
+			gr.setAttributeNS(null, 'time-total-exclusive-pct', heat*100);
+
+			// create rectangle for time segment
+			var rect = svgDoc.createElementNS(svgns, 'rect');
+			rect.setAttributeNS(null, 'x', segId * boxWidth);
+			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
+			rect.setAttributeNS(null, 'width', boxWidth);
+			rect.setAttributeNS(null, 'height', boxHeight);
+			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, Math.ceil(255*(1-heatColor)), Math.ceil(255*(1-heatColor)))+';'+
+				'cursor:pointer;'+ 'stroke:#FFFFFF; stroke-width:'+strokeWidth+'px;');
+
+			gr.appendChild(rect);
+			c.appendChild(gr);
+
+			// mouse enter event
+			$(gr).mouseenter(function() {
+				var nodename = '??';
+				if (typeof functionTable[$(this).attr('funcid')] !== 'undefined')
+					nodename = functionTable[$(this).attr('funcid')].name;
+
+				// show tooltip
+				floatingTooltip.show();
+				floatingTooltip.css('margin-top', '-6.5em');
+				floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />'+
+									 'Inclusive '+profUnitTitleSub+': '+$(this).attr('time-total-inclusive-pct')+'% ('+$(this).attr('time-total-inclusive')+''+profUnitShort+')<br />'+
+									 'Exclusive '+profUnitTitleSub+': '+$(this).attr('time-total-exclusive-pct')+'% ('+$(this).attr('time-total-exclusive')+''+profUnitShort+')');
+			});
+			// mouse leave event
+			$(gr).mouseleave(function() {
+				// hide and reset tooltip
+				floatingTooltip.hide();
+				floatingTooltip.css('margin-top', '');
+			});
+
+			var gr = svgDoc.createElementNS(svgns, 'g');
+			gr.setAttributeNS(null, 'funcid', funcId);
+
+			var rect = svgDoc.createElementNS(svgns, 'rect');
+			rect.setAttributeNS(null, 'x', 0);
+			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
+			rect.setAttributeNS(null, 'width', funcbar_width);
+			rect.setAttributeNS(null, 'height', boxHeight);
+			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, 255, 255)+';'+
+				'cursor:pointer;'+ 'stroke:#CCCCCC; stroke-width:'+strokeWidth+'px;');
+
+			var fname = functionTable[funcId].name;
+			var ind = fname.indexOf('(');
+			if (ind > 0)
+				fname = fname.substr(0, ind);
+
+			var textel = svgDoc.createElementNS(svgns, 'text');
+			textel.setAttributeNS(null, 'x', 5);
+			textel.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + boxHeight*0.7);
+			textel.setAttributeNS(null, 'font-family', 'Courier New');
+			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+			textel.setAttributeNS(null, 'color', '#000000');
+			textel.setAttributeNS(null, 'style', 'cursor:pointer;');
+			textel.textContent = fname;
+
+			gr.appendChild(rect);
+			gr.appendChild(textel);
+			cF.appendChild(gr);
+
+			// add function name tooltip to funcbar
+
+			// mouse enter event
+			$(gr).mouseenter(function() {
+				var nodename = '??';
+				if (typeof functionTable[$(this).attr('funcid')] !== 'undefined')
+					nodename = functionTable[$(this).attr('funcid')].name;
+
+				// show tooltip
+				floatingTooltip.show();
+				floatingTooltip.css('margin-top', '-3em');
+				floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />');
+			});
+			// mouse leave event
+			$(gr).mouseleave(function() {
+				// hide and reset tooltip
+				floatingTooltip.hide();
+				floatingTooltip.css('margin-top', '');
+			});
+		}
+	}
 }
 
 var nodeInfo = {

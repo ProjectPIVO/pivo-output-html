@@ -264,6 +264,10 @@ PHToken* HtmlTemplateWorker::NextToken()
                 tok->blockType = PHBT_CALL_GRAPH;
             else if (tokenidentifier == "CALL_TREE_DATA")
                 tok->blockType = PHBT_CALL_TREE;
+            else if (tokenidentifier == "HEAT_MAP_HISTOGRAM_DATA")
+                tok->blockType = PHBT_HEAT_MAP;
+            else if (tokenidentifier == "FUNCTION_TABLE")
+                tok->blockType = PHBT_FUNCTION_TABLE;
             else
                 tok->blockType = MAX_PHBT;
         }
@@ -491,6 +495,79 @@ void HtmlTemplateWorker::FillCallTreeBlock(FILE* outfile, PHToken* token)
     }
 }
 
+void HtmlTemplateWorker::FillHeatMapHistogramBlock(FILE* outfile, PHToken* token)
+{
+    PHToken* bltok;
+    std::string val;
+
+    LogFunc(LOG_VERBOSE, "Filling heat map histogram block");
+
+    // go through all histogram records...
+    for (size_t i = 0; i < m_data->heatMapData.size(); i++)
+    {
+        for (VolumeHistogramMap::iterator vitr = m_data->heatMapData[i].begin(); vitr != m_data->heatMapData[i].end(); ++vitr)
+        {
+            // and repeat token sequence for every histogram record
+            for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
+            {
+                bltok = *iter;
+
+                switch (bltok->tokenType)
+                {
+                    // text token (just copy contents)
+                    case PHTT_TEXT:
+                        WriteTextContent(outfile, bltok);
+                        break;
+                    // histogram value
+                    case PHTT_VALUE:
+                        val = EscapeStringByType(GetHeatMapHistogramValue(i, vitr->first, vitr->second, bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
+                        fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                        break;
+                    // block - disallow nesting to this block type
+                    case PHTT_BLOCK:
+                        LogFunc(LOG_ERROR, "No blocks could be nested into heat map block!");
+                        break;
+                }
+            }
+        }
+    }
+}
+
+void HtmlTemplateWorker::FillFunctionTableBlock(FILE* outfile, PHToken* token)
+{
+    PHToken* bltok;
+    std::string val;
+
+    LogFunc(LOG_VERBOSE, "Filling function table block");
+
+    // go through all function table records...
+    for (uint32_t i = 0; i < m_data->functionTable.size(); i++)
+    {
+        // and repeat token sequence for every function record in table
+        for (std::list<PHToken*>::iterator iter = token->tokenContent.begin(); iter != token->tokenContent.end(); ++iter)
+        {
+            bltok = *iter;
+
+            switch (bltok->tokenType)
+            {
+                // text token (just copy contents)
+                case PHTT_TEXT:
+                    WriteTextContent(outfile, bltok);
+                    break;
+                // function record value
+                case PHTT_VALUE:
+                    val = EscapeStringByType(GetFunctionTableValue(i, m_data->functionTable[i], bltok->textContent.c_str()).c_str(), (OutputEscapeType)bltok->tokenParameter);
+                    fwrite(val.c_str(), sizeof(char), val.length(), outfile);
+                    break;
+                // block - disallow nesting to this block type
+                case PHTT_BLOCK:
+                    LogFunc(LOG_ERROR, "No blocks could be nested into function table block!");
+                    break;
+            }
+        }
+    }
+}
+
 void HtmlTemplateWorker::FillSummaryBlock(FILE* outfile, PHToken* token)
 {
     LogFunc(LOG_VERBOSE, "Filling summary block");
@@ -584,6 +661,14 @@ void HtmlTemplateWorker::FillTemplateFile(FILE* outfile, PHTokenList &tokenSourc
                     // call tree
                     case PHBT_CALL_TREE:
                         FillCallTreeBlock(outfile, tok);
+                        break;
+                    // heat map
+                    case PHBT_HEAT_MAP:
+                        FillHeatMapHistogramBlock(outfile, tok);
+                        break;
+                    // function record table
+                    case PHBT_FUNCTION_TABLE:
+                        FillFunctionTableBlock(outfile, tok);
                         break;
                 }
                 break;
@@ -1027,6 +1112,46 @@ std::string HtmlTemplateWorker::GetGlobalValue(const char* identifier)
             default:
                 return "0";
         }
+    }
+
+    return "<Unknown>";
+}
+
+std::string HtmlTemplateWorker::GetHeatMapHistogramValue(size_t time_segment_id, uint32_t function_id, VolumeHistogramEntry& src, const char* identifier)
+{
+    if (strcmp(identifier, "TIMESEGMENT_ID") == 0)
+    {
+        return std::to_string(time_segment_id);
+    }
+    else if (strcmp(identifier, "FUNCTION_ID") == 0)
+    {
+        return std::to_string(function_id);
+    }
+    else if (strcmp(identifier, "TIME_TOTAL") == 0)
+    {
+        return std::to_string(src.timeTotal);
+    }
+    else if (strcmp(identifier, "TIME_TOTAL_INCLUSIVE") == 0)
+    {
+        return std::to_string(src.timeTotalInclusive);
+    }
+
+    return "<Unknown>";
+}
+
+std::string HtmlTemplateWorker::GetFunctionTableValue(uint32_t function_id, FunctionEntry& src, const char* identifier)
+{
+    if (strcmp(identifier, "FUNCTION_ID") == 0)
+    {
+        return std::to_string(function_id);
+    }
+    else if (strcmp(identifier, "FUNCTION_NAME") == 0)
+    {
+        return src.name;
+    }
+    else if (strcmp(identifier, "FUNCTION_TYPE") == 0)
+    {
+        return std::string({ (char) src.functionType });
     }
 
     return "<Unknown>";

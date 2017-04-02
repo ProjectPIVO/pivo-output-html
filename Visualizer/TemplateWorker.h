@@ -62,6 +62,8 @@ enum PHTokenBlockType
     PHBT_FLAT_PROFILE = 1,          // flat view
     PHBT_CALL_GRAPH = 2,            // call graph data
     PHBT_CALL_TREE = 3,             // call tree data
+    PHBT_HEAT_MAP = 4,              // heat map data
+    PHBT_FUNCTION_TABLE = 5,        // function table data
     MAX_PHBT
 };
 
@@ -133,6 +135,10 @@ class HtmlTemplateWorker
         void FillCallTreeBlock(FILE* outfile, PHToken* token);
         // fills summary block
         void FillSummaryBlock(FILE* outfile, PHToken* token);
+        // fills heat map histogram block
+        void FillHeatMapHistogramBlock(FILE* outfile, PHToken* token);
+        // fulls function table data block
+        void FillFunctionTableBlock(FILE* outfile, PHToken* token);
 
         // writes text token contents to file
         void WriteTextContent(FILE* outfile, PHToken* token);
@@ -147,6 +153,10 @@ class HtmlTemplateWorker
         std::string GetCallGraphValue(uint32_t caller_id, uint32_t callee_id, const char* identifier);
         // retrieves call tree value
         std::string GetCallTreeValue(CallTreeChainHolder& src, const char* identifier);
+        // retrieves heat map histogram value
+        std::string GetHeatMapHistogramValue(size_t time_segment_id, uint32_t function_id, VolumeHistogramEntry& src, const char* identifier);
+        // retrieves function table value
+        std::string GetFunctionTableValue(uint32_t function_id, FunctionEntry& src, const char* identifier);
         // get global value
         std::string GetGlobalValue(const char* identifier);
         // escapes string for output to HTML

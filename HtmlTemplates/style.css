@@ -142,6 +142,14 @@ h1
 	border: 1px solid #FFFFDD;
 }
 
+#report-content .toolbar-inline
+{
+	margin: 10px;
+	padding: 0.6em 0.8em 3em 0.8em;
+	background: white;
+	border: 1px solid #FFFFDD;
+}
+
 #report-content .toolbar-top-left.opener,
  #report-content .toolbar-flow-top.opener
 {
@@ -173,14 +181,16 @@ h1
 }
 
 #report-content .toolbar-top-left button.right,
- #report-content .toolbar-flow-top button.right
+ #report-content .toolbar-flow-top button.right,
+ #report-content .toolbar-inline button.right
 {
 	float: right;
 	margin-right: 0;
 }
 
 #report-content .toolbar-top-left button,
- #report-content .toolbar-flow-top button
+ #report-content .toolbar-flow-top button,
+ #report-content .toolbar-inline button
 {
 	display: block;
 	background: #FFA114;

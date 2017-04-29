@@ -164,12 +164,84 @@ var heatMapHistograms = {
 function pivo_addHistogramRecord(timeSegmentId, functionId, timeTotal, timeTotalInclusive)
 {
 	if (typeof heatMapHistograms[timeSegmentId] == 'undefined')
-		heatMapHistograms[timeSegmentId] = {};
+		heatMapHistograms[timeSegmentId] = { records: {}, order: 0 };
 
-	heatMapHistograms[timeSegmentId][functionId] = {
+	heatMapHistograms[timeSegmentId].records[functionId] = {
 		'profTimeTotalExclusive': timeTotal,
 		'profTimeTotalInclusive': timeTotalInclusive
 	};
+}
+
+// constant for now - milliseconds per one segment
+var heatMap_segmentSize = 100.0; // milliseconds
+var heatMap_segmentCount = 0;
+
+function pivo_initHeatMapRange()
+{
+	heatMap_segmentCount = 0;
+	for (var segId in heatMapHistograms)
+	{
+		heatMap_segmentCount++;
+		heatMapHistograms[segId].order = heatMap_segmentCount;
+	}
+	
+	$('#heatmap-time-from').val(0);
+	if (heatMap_segmentCount < 200)
+		$('#heatmap-time-to').val(heatMap_segmentCount*heatMap_segmentSize);
+	else
+		$('#heatmap-time-to').val(200*heatMap_segmentSize);
+}
+
+function pivo_heatMapNextBlock(overlap)
+{
+	if (typeof overlap === 'undefined')
+		overlap = 0.0;
+
+	var lowSegLimit = 0;
+	var highSegLimit = 10;
+	
+	// retrieve segment limits
+	try
+	{
+		lowSegLimit = parseInt($('#heatmap-time-from').val());
+		highSegLimit = parseInt($('#heatmap-time-to').val());
+		
+		lowSegLimit /= heatMap_segmentSize;
+		highSegLimit /= heatMap_segmentSize;
+		
+		// TODO: error messages!
+		
+		if (lowSegLimit > highSegLimit)
+			return;
+		if (lowSegLimit < 0 || highSegLimit < 0)
+			return;
+		if (highSegLimit > heatMap_segmentCount)
+			highSegLimit = heatMap_segmentCount;
+	}
+	catch (e)
+	{
+		return;
+	}
+	
+	// calculate difference, move by difference (to next block); also consider overlap
+	var diff = (highSegLimit - lowSegLimit)*(1.0-overlap);
+	lowSegLimit += diff;
+	highSegLimit += diff;
+	
+	// if we ran out of limits, move back to be exactly at limit
+	if (highSegLimit > heatMap_segmentCount)
+	{
+		diff = highSegLimit - heatMap_segmentCount;
+		lowSegLimit -= diff;
+		highSegLimit -= diff;
+	}
+	
+	// set new limits
+	$('#heatmap-time-from').val(lowSegLimit * heatMap_segmentSize);
+	$('#heatmap-time-to').val(highSegLimit * heatMap_segmentSize);
+	
+	// and generate heat map
+	pivo_createHeatMap();
 }
 
 function pivo_createHeatMap()
@@ -184,11 +256,62 @@ function pivo_createHeatMap()
 	// retrieve filter/preferences
 	var colPred = $('#heatmap-preference-color-source').val();
 	var textOnly = $('#heatmap-preference-textonly').is(':checked');
+	
+	var heatMapLowerThreshold = 0.0;
+	var thresholdType = $('#heatmap-lower-threshold-type').val();
+	
+	// extract threshold value
+	try
+	{
+		heatMapLowerThreshold = parseFloat($('#heatmap-lower-threshold').val());
+		
+		// do not allow to exceed limits
+		if (heatMapLowerThreshold < 0.0)
+			heatMapLowerThreshold = 0.0;
+		if (heatMapLowerThreshold > 100.0)
+			heatMapLowerThreshold = 100.0;
+	}
+	catch (e)
+	{
+		//
+	}
+	
+	var lowSegLimit = 0;
+	var highSegLimit = 10;
+	
+	// extract time segment limits
+	try
+	{
+		lowSegLimit = parseInt($('#heatmap-time-from').val());
+		highSegLimit = parseInt($('#heatmap-time-to').val());
+		
+		lowSegLimit /= heatMap_segmentSize;
+		highSegLimit /= heatMap_segmentSize;
+		
+		// TODO: error messages!
+		
+		if (lowSegLimit > highSegLimit)
+			return;
+		if (lowSegLimit < 0 || highSegLimit < 0)
+			return;
+		if (highSegLimit > heatMap_segmentCount)
+			highSegLimit = heatMap_segmentCount;
+	}
+	catch (e)
+	{
+		
+	}
+
+	// indicator map of threshold values
+	var fncHeatIndicator = {};
 
 	// determine limits and counts from entire heatmap
 	for (var segId in heatMapHistograms)
 	{
-		for (var funcId in heatMapHistograms[segId])
+		if (heatMapHistograms[segId].order < lowSegLimit || heatMapHistograms[segId].order > highSegLimit)
+			continue;
+		
+		for (var funcId in heatMapHistograms[segId].records)
 		{
 			if (maxFuncId < funcId)
 				maxFuncId = funcId;
@@ -196,23 +319,38 @@ function pivo_createHeatMap()
 			// filter out undefined and non-.text functions
 			if (typeof functionTable[funcId] == 'undefined' || (textOnly && functionTable[funcId].type != 't'))
 				continue;
+			
+			var curVal = filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]);
 
-			if (minHeat == null || minHeat > filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]))
-				minHeat = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]);
-			if (maxHeat == null || maxHeat < filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]))
-				maxHeat = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]);
+			if (minHeat == null || minHeat > curVal)
+				minHeat = curVal;
+			if (maxHeat == null || maxHeat < curVal)
+				maxHeat = curVal;
 
-			if (maxExTime == null || maxExTime < heatMapHistograms[segId][funcId].profTimeTotalExclusive)
-				maxExTime = heatMapHistograms[segId][funcId].profTimeTotalExclusive;
+			if (maxExTime == null || maxExTime < heatMapHistograms[segId].records[funcId].profTimeTotalExclusive)
+				maxExTime = heatMapHistograms[segId].records[funcId].profTimeTotalExclusive;
 
-			if (maxInTime == null || maxInTime < heatMapHistograms[segId][funcId].profTimeTotalInclusive)
-				maxInTime = heatMapHistograms[segId][funcId].profTimeTotalInclusive;
+			if (maxInTime == null || maxInTime < heatMapHistograms[segId].records[funcId].profTimeTotalInclusive)
+				maxInTime = heatMapHistograms[segId].records[funcId].profTimeTotalInclusive;
 
 			// fill function bitmap and determine final function count
 			if (typeof fncBitmap[funcId] == 'undefined')
 			{
 				fncCnt++;
 				fncBitmap[funcId] = funcId;
+				
+				if (thresholdType === 'average-greater' || thresholdType === 'once-greater')
+					fncHeatIndicator[funcId] = curVal;
+			}
+			else
+			{
+				if (thresholdType === 'average-greater')
+					fncHeatIndicator[funcId] += curVal;
+				else if (thresholdType === 'once-greater')
+				{
+					if (curVal > fncHeatIndicator[funcId])
+						fncHeatIndicator[funcId] = curVal;
+				}
 			}
 		}
 	}
@@ -223,6 +361,38 @@ function pivo_createHeatMap()
 	var dist = maxExTime - minExTime;
 	var distIn = maxInTime - minInTime;
 	var distHeat = maxHeat - minHeat;
+	
+	// if threshold type is "average is greater than", calculate average of each function and filter out
+	if (thresholdType === 'average-greater')
+	{
+		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		{
+			if (typeof fncHeatIndicator[funcId] == 'undefined')
+				continue;
+
+			fncHeatIndicator[funcId] = (fncHeatIndicator[funcId] / heatMap_segmentCount);
+			if (fncHeatIndicator[funcId] < heatMapLowerThreshold)
+			{
+				fncBitmap[funcId] = -1;
+				fncCnt--;
+			}
+		}
+	}
+	// threshold type is "at least once greater"
+	else if (thresholdType === 'once-greater')
+	{
+		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		{
+			if (typeof fncHeatIndicator[funcId] == 'undefined')
+				continue;
+
+			if (fncHeatIndicator[funcId] < heatMapLowerThreshold)
+			{
+				fncBitmap[funcId] = -1;
+				fncCnt--;
+			}
+		}
+	}
 
 	var c = document.getElementById("heat-map-target");
 	c.innerHTML = '';
@@ -231,11 +401,13 @@ function pivo_createHeatMap()
 	var boxWidth = 8;
 	var boxHeight = 15;
 	var strokeWidth = 1;
+	
+	var segRange = highSegLimit - lowSegLimit;
 
 	// resize containers, canvases, etc.
-	$('#heat-map-container').width((boxWidth) * Object.keys(heatMapHistograms).length);
+	$('#heat-map-container').width((boxWidth) * segRange);
 	$('#heat-map-container').height(boxHeight * fncCnt);
-	$('#heat-map-target').attr('width', (boxWidth + 2*strokeWidth) * Object.keys(heatMapHistograms).length);
+	$('#heat-map-target').attr('width', (boxWidth + 2*strokeWidth) * segRange);
 	$('#heat-map-target').attr('height', boxHeight * fncCnt);
 
 	$('#heat-map-funcbar').height(1 + boxHeight * fncCnt);
@@ -259,33 +431,37 @@ function pivo_createHeatMap()
 	gr.appendChild(rect);
 	c.appendChild(gr);
 
+	// draw little rectangles
 	for (var segId in heatMapHistograms)
 	{
+		if (heatMapHistograms[segId].order < lowSegLimit || heatMapHistograms[segId].order > highSegLimit)
+			continue;
+
 		var yoff = 0;
 
 		for (var funcId = 0; funcId <= maxFuncId; funcId++)
 		{
 			// function not in function bitmap, probably filtered out
-			if (typeof fncBitmap[funcId] == 'undefined')
+			if (typeof fncBitmap[funcId] == 'undefined' || fncBitmap[funcId] === -1)
 			{
 				yoff++;
 				continue;
 			}
 
 			// no record for function in current segment, or the value used to determine color is zero
-			if (typeof heatMapHistograms[segId][funcId] == 'undefined' || filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]) == 0)
+			if (typeof heatMapHistograms[segId].records[funcId] == 'undefined' || filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]) == 0)
 			{
 				// do not draw, leave blank (white (background), as it should be)
 				continue;
 			}
 			else
 			{
-				var total = heatMapHistograms[segId][funcId].profTimeTotalExclusive;
-				var totalIn = heatMapHistograms[segId][funcId].profTimeTotalInclusive;
-				var heat = (heatMapHistograms[segId][funcId].profTimeTotalExclusive - minExTime) / dist;
-				var heatIn = (heatMapHistograms[segId][funcId].profTimeTotalInclusive - minInTime) / distIn;
+				var total = heatMapHistograms[segId].records[funcId].profTimeTotalExclusive;
+				var totalIn = heatMapHistograms[segId].records[funcId].profTimeTotalInclusive;
+				var heat = (heatMapHistograms[segId].records[funcId].profTimeTotalExclusive - minExTime) / dist;
+				var heatIn = (heatMapHistograms[segId].records[funcId].profTimeTotalInclusive - minInTime) / distIn;
 
-				var heatColor = filterSourceFieldPredicates[colPred](heatMapHistograms[segId][funcId]) / distHeat;
+				var heatColor = filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]) / distHeat;
 			}
 
 			// create parent group and fill attributes
@@ -298,7 +474,7 @@ function pivo_createHeatMap()
 
 			// create rectangle for time segment
 			var rect = svgDoc.createElementNS(svgns, 'rect');
-			rect.setAttributeNS(null, 'x', segId * boxWidth);
+			rect.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
 			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
 			rect.setAttributeNS(null, 'width', boxWidth);
 			rect.setAttributeNS(null, 'height', boxHeight);
@@ -327,6 +503,21 @@ function pivo_createHeatMap()
 				floatingTooltip.hide();
 				floatingTooltip.css('margin-top', '');
 			});
+		}
+	}
+	
+	// draw function names
+	for (var segId in heatMapHistograms)
+	{
+		yoff = 0;
+		
+		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		{
+			if (typeof fncBitmap[funcId] == 'undefined' || fncBitmap[funcId] === -1)
+			{
+				yoff++;
+				continue;
+			}
 
 			var gr = svgDoc.createElementNS(svgns, 'g');
 			gr.setAttributeNS(null, 'funcid', funcId);

@@ -42,6 +42,7 @@ $(document).ready(function() {
 	pivo_initCallGraphData();
 	pivo_initCallTreeData();
 	pivo_initHeatMapHistogramData();
+	pivo_initHeatMapRange();
 	pivo_createCallGraph();
 	pivo_createCallTree();
 	pivo_createFlameGraph();
@@ -290,6 +291,29 @@ $(document).ready(function() {
 								<option value="inclusive-exclusive-ratio-abs">Inclusive/Exclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> ratio</option>
 								<option value="exclusive-inclusive-ratio-abs">Exclusive/Inclusive <#VALUE PROFILING_UNIT_TITLE_SUB#> ratio</option>
 							</select>
+						</td>
+					</tr>
+					<tr>
+						<td class="heatmap-preference-entry">
+							Lower threshold (percents):
+						</td>
+						<td class="heatmap-preference-entry">
+							<select id="heatmap-lower-threshold-type">
+								<option value="average-greater">average greater than</option>
+								<option value="once-greater" selected>at least once greater than</option>
+							</select>
+							<input type="text" id="heatmap-lower-threshold" value="5" />
+						</td>
+					</tr>
+					<tr>
+						<td class="heatmap-preference-entry">
+							Time range (milliseconds):
+						</td>
+						<td class="heatmap-preference-entry">
+							<input type="text" id="heatmap-time-from" value="0" />
+							<input type="text" id="heatmap-time-to" value="10000" />
+							<button type="button" class="right" onclick="pivo_heatMapNextBlock(0.0);">NEXT BLOCK</button>
+							<button type="button" class="right" onclick="pivo_heatMapNextBlock(0.5);">NEXT BLOCK (50% overlap)</button>
 						</td>
 					</tr>
 					<tr>

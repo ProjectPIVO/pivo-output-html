@@ -461,8 +461,17 @@ function pivo_createHeatMap()
 				var heat = (heatMapHistograms[segId].records[funcId].profTimeTotalExclusive - minExTime) / dist;
 				var heatIn = (heatMapHistograms[segId].records[funcId].profTimeTotalInclusive - minInTime) / distIn;
 
-				var heatColor = filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]) / distHeat;
+				var heatColor = (filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]) - minHeat)/ distHeat;
 			}
+			
+			var hueCoef = heatColor*1.25 - 0.25;
+			if (heatColor < 0.25)
+				hueCoef = 0;
+			var satCoef = heatColor*3;
+			if (heatColor > 0.333)
+				satCoef = 1;
+			
+			var col = pivo_HSVtoRGB((1.0-hueCoef)*120.0/360.0, satCoef, 1.0);
 
 			// create parent group and fill attributes
 			var gr = svgDoc.createElementNS(svgns, 'g');
@@ -478,7 +487,7 @@ function pivo_createHeatMap()
 			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
 			rect.setAttributeNS(null, 'width', boxWidth);
 			rect.setAttributeNS(null, 'height', boxHeight);
-			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, Math.ceil(255*(1-heatColor)), Math.ceil(255*(1-heatColor)))+';'+
+			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(col.r, col.g, col.b)+';'+
 				'cursor:pointer;'+ 'stroke:#FFFFFF; stroke-width:'+strokeWidth+'px;');
 
 			gr.appendChild(rect);
@@ -1030,6 +1039,32 @@ function pivo_getHexColor(r, g, b)
 		+('00' + Number(b).toString(16)).slice(-2);
 	
 	return color;
+}
+
+function pivo_HSVtoRGB(h, s, v) {
+    var r, g, b, i, f, p, q, t;
+
+    i = Math.floor(h * 6);
+    f = h * 6 - i;
+    p = v * (1 - s);
+    q = v * (1 - f * s);
+    t = v * (1 - (1 - f) * s);
+	
+    switch (i % 6)
+	{
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+    }
+
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
 }
 
 function rangeAlignColor(v)

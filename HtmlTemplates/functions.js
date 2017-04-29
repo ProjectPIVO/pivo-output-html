@@ -401,17 +401,18 @@ function pivo_createHeatMap()
 	var boxWidth = 8;
 	var boxHeight = 15;
 	var strokeWidth = 1;
+	var baseYOffset = boxHeight * 1.5 + 2;
 	
 	var segRange = highSegLimit - lowSegLimit;
 
 	// resize containers, canvases, etc.
 	$('#heat-map-container').width((boxWidth) * segRange);
-	$('#heat-map-container').height(boxHeight * fncCnt);
+	$('#heat-map-container').height(boxHeight * fncCnt + baseYOffset);
 	$('#heat-map-target').attr('width', (boxWidth + 2*strokeWidth) * segRange);
-	$('#heat-map-target').attr('height', boxHeight * fncCnt);
+	$('#heat-map-target').attr('height', boxHeight * fncCnt + baseYOffset);
 
-	$('#heat-map-funcbar').height(1 + boxHeight * fncCnt);
-	$('#heat-map-funcbar-target').attr('height', 1 + boxHeight * fncCnt);
+	$('#heat-map-funcbar').height(1 + boxHeight * fncCnt + baseYOffset);
+	$('#heat-map-funcbar-target').attr('height', 1 + boxHeight * fncCnt + baseYOffset);
 
 	var cF = document.getElementById("heat-map-funcbar-target");
 	cF.innerHTML = '';
@@ -436,6 +437,53 @@ function pivo_createHeatMap()
 	{
 		if (heatMapHistograms[segId].order < lowSegLimit || heatMapHistograms[segId].order > highSegLimit)
 			continue;
+		
+		if ((segId % 10) === 0)
+		{
+			var gr = svgDoc.createElementNS(svgns, 'g');
+			gr.setAttributeNS(null, 'segid-text', segId);
+
+			var textel = svgDoc.createElementNS(svgns, 'text');
+			textel.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
+			textel.setAttributeNS(null, 'y', boxHeight*0.7);
+			textel.setAttributeNS(null, 'font-family', 'Courier New');
+			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+			textel.setAttributeNS(null, 'color', '#000000');
+			textel.textContent = (segId*heatMap_segmentSize/1000).toFixed(1) + "s";
+
+			gr.appendChild(textel);
+			c.appendChild(gr);
+		}
+		
+		var gr = svgDoc.createElementNS(svgns, 'g');
+		gr.setAttributeNS(null, 'segid', segId);
+		
+		// create rectangle for time segment
+		var rect = svgDoc.createElementNS(svgns, 'rect');
+		rect.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
+		rect.setAttributeNS(null, 'y', 16);
+		rect.setAttributeNS(null, 'width', boxWidth);
+		rect.setAttributeNS(null, 'height', boxHeight*0.5);
+		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(250, 250, 250)+';'+
+			'cursor:pointer;'+ 'stroke:#cccccc; stroke-width:'+strokeWidth+'px; stroke-dasharray: 0,'+(boxWidth*2+boxHeight*0.5)+','+boxHeight*0.5);
+
+		gr.appendChild(rect);
+		c.appendChild(gr);
+		
+		$(gr).mouseenter(function() {
+			var segId = parseInt($(this).attr('segid'));
+			
+			// show tooltip
+			floatingTooltip.show();
+			floatingTooltip.css('margin-top', '-6.5em');
+			floatingTooltip.html('<span class="fname">'+segId*heatMap_segmentSize+'ms</span>');
+		});
+		// mouse leave event
+		$(gr).mouseleave(function() {
+			// hide and reset tooltip
+			floatingTooltip.hide();
+			floatingTooltip.css('margin-top', '');
+		});
 
 		var yoff = 0;
 
@@ -484,7 +532,7 @@ function pivo_createHeatMap()
 			// create rectangle for time segment
 			var rect = svgDoc.createElementNS(svgns, 'rect');
 			rect.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
-			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
+			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + baseYOffset);
 			rect.setAttributeNS(null, 'width', boxWidth);
 			rect.setAttributeNS(null, 'height', boxHeight);
 			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(col.r, col.g, col.b)+';'+
@@ -516,67 +564,65 @@ function pivo_createHeatMap()
 	}
 	
 	// draw function names
-	for (var segId in heatMapHistograms)
+
+	yoff = 0;
+
+	for (var funcId = 0; funcId <= maxFuncId; funcId++)
 	{
-		yoff = 0;
-		
-		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		if (typeof fncBitmap[funcId] == 'undefined' || fncBitmap[funcId] === -1)
 		{
-			if (typeof fncBitmap[funcId] == 'undefined' || fncBitmap[funcId] === -1)
-			{
-				yoff++;
-				continue;
-			}
-
-			var gr = svgDoc.createElementNS(svgns, 'g');
-			gr.setAttributeNS(null, 'funcid', funcId);
-
-			var rect = svgDoc.createElementNS(svgns, 'rect');
-			rect.setAttributeNS(null, 'x', 0);
-			rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight);
-			rect.setAttributeNS(null, 'width', funcbar_width);
-			rect.setAttributeNS(null, 'height', boxHeight);
-			rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, 255, 255)+';'+
-				'cursor:pointer;'+ 'stroke:#CCCCCC; stroke-width:'+strokeWidth+'px;');
-
-			var fname = functionTable[funcId].name;
-			var ind = fname.indexOf('(');
-			if (ind > 0)
-				fname = fname.substr(0, ind);
-
-			var textel = svgDoc.createElementNS(svgns, 'text');
-			textel.setAttributeNS(null, 'x', 5);
-			textel.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + boxHeight*0.7);
-			textel.setAttributeNS(null, 'font-family', 'Courier New');
-			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
-			textel.setAttributeNS(null, 'color', '#000000');
-			textel.setAttributeNS(null, 'style', 'cursor:pointer;');
-			textel.textContent = fname;
-
-			gr.appendChild(rect);
-			gr.appendChild(textel);
-			cF.appendChild(gr);
-
-			// add function name tooltip to funcbar
-
-			// mouse enter event
-			$(gr).mouseenter(function() {
-				var nodename = '??';
-				if (typeof functionTable[$(this).attr('funcid')] !== 'undefined')
-					nodename = functionTable[$(this).attr('funcid')].name;
-
-				// show tooltip
-				floatingTooltip.show();
-				floatingTooltip.css('margin-top', '-3em');
-				floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />');
-			});
-			// mouse leave event
-			$(gr).mouseleave(function() {
-				// hide and reset tooltip
-				floatingTooltip.hide();
-				floatingTooltip.css('margin-top', '');
-			});
+			yoff++;
+			continue;
 		}
+
+		var gr = svgDoc.createElementNS(svgns, 'g');
+		gr.setAttributeNS(null, 'funcid', funcId);
+
+		var rect = svgDoc.createElementNS(svgns, 'rect');
+		rect.setAttributeNS(null, 'x', 0);
+		rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + baseYOffset);
+		rect.setAttributeNS(null, 'width', funcbar_width);
+		rect.setAttributeNS(null, 'height', boxHeight);
+		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, 255, 255)+';'+
+			'cursor:pointer;'+ 'stroke:#CCCCCC; stroke-width:'+strokeWidth+'px;');
+
+		var fname = functionTable[funcId].name;
+		var ind = fname.indexOf('(');
+		if (ind > 0)
+			fname = fname.substr(0, ind);
+
+		var textel = svgDoc.createElementNS(svgns, 'text');
+		textel.setAttributeNS(null, 'x', 5);
+		textel.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + boxHeight*0.7 + baseYOffset);
+		textel.setAttributeNS(null, 'font-family', 'Courier New');
+		textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+		textel.setAttributeNS(null, 'color', '#000000');
+		textel.setAttributeNS(null, 'style', 'cursor:pointer;');
+		textel.textContent = fname;
+
+		gr.appendChild(rect);
+		gr.appendChild(textel);
+		cF.appendChild(gr);
+
+		// add function name tooltip to funcbar
+
+		// mouse enter event
+		$(gr).mouseenter(function() {
+			var nodename = '??';
+			if (typeof functionTable[$(this).attr('funcid')] !== 'undefined')
+				nodename = functionTable[$(this).attr('funcid')].name;
+
+			// show tooltip
+			floatingTooltip.show();
+			floatingTooltip.css('margin-top', '-3em');
+			floatingTooltip.html('<span class="fname">'+escapeHtml(nodename)+'</span><br />');
+		});
+		// mouse leave event
+		$(gr).mouseleave(function() {
+			// hide and reset tooltip
+			floatingTooltip.hide();
+			floatingTooltip.css('margin-top', '');
+		});
 	}
 }
 

@@ -176,6 +176,11 @@ function pivo_addHistogramRecord(timeSegmentId, functionId, timeTotal, timeTotal
 var heatMap_segmentSize = 100.0; // milliseconds
 var heatMap_segmentCount = 0;
 
+// x = none, h = horizontal section (time-series), v = vertical section (flat view slice)
+var heatMap_subPlot = 'x';
+// ID of displayed subplot - functionId for horizontal, segmentId for vertical
+var heatMap_subPlotId = 0;
+
 function pivo_initHeatMapRange()
 {
 	heatMap_segmentCount = 0;
@@ -404,15 +409,25 @@ function pivo_createHeatMap()
 	var baseYOffset = boxHeight * 1.5 + 2;
 	
 	var segRange = highSegLimit - lowSegLimit;
+	
+	var mainPlotHeight = boxHeight * fncCnt + baseYOffset;
+	var plotSpacing = 0;
+	var subPlotHeight = 0;
+	
+	if (heatMap_subPlot === 'h')
+	{
+		subPlotHeight = 300;
+		plotSpacing = boxHeight;
+	}
 
 	// resize containers, canvases, etc.
 	$('#heat-map-container').width((boxWidth) * segRange);
-	$('#heat-map-container').height(boxHeight * fncCnt + baseYOffset);
+	$('#heat-map-container').height(mainPlotHeight + plotSpacing + subPlotHeight + baseYOffset);
 	$('#heat-map-target').attr('width', (boxWidth + 2*strokeWidth) * segRange);
-	$('#heat-map-target').attr('height', boxHeight * fncCnt + baseYOffset);
+	$('#heat-map-target').attr('height', mainPlotHeight + plotSpacing + subPlotHeight + baseYOffset);
 
-	$('#heat-map-funcbar').height(1 + boxHeight * fncCnt + baseYOffset);
-	$('#heat-map-funcbar-target').attr('height', 1 + boxHeight * fncCnt + baseYOffset);
+	$('#heat-map-funcbar').height(1 + mainPlotHeight + plotSpacing + subPlotHeight + baseYOffset);
+	$('#heat-map-funcbar-target').attr('height', 1 + mainPlotHeight + plotSpacing + subPlotHeight + baseYOffset);
 
 	var cF = document.getElementById("heat-map-funcbar-target");
 	cF.innerHTML = '';
@@ -437,9 +452,11 @@ function pivo_createHeatMap()
 	{
 		if (heatMapHistograms[segId].order < lowSegLimit || heatMapHistograms[segId].order > highSegLimit)
 			continue;
-		
+
+		// print axis titles (seconds)
 		if ((segId % 10) === 0)
 		{
+			// top axis titles
 			var gr = svgDoc.createElementNS(svgns, 'g');
 			gr.setAttributeNS(null, 'segid-text', segId);
 
@@ -453,7 +470,58 @@ function pivo_createHeatMap()
 
 			gr.appendChild(textel);
 			c.appendChild(gr);
+
+			// bottom axis titles
+			var gr = svgDoc.createElementNS(svgns, 'g');
+			gr.setAttributeNS(null, 'segid-text', segId);
+
+			var textel = svgDoc.createElementNS(svgns, 'text');
+			textel.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
+			textel.setAttributeNS(null, 'y', mainPlotHeight + (heatMap_subPlot === 'h' ? subPlotHeight + plotSpacing : 0 ) + boxHeight/2 + boxHeight*0.7);
+			textel.setAttributeNS(null, 'font-family', 'Courier New');
+			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+			textel.setAttributeNS(null, 'color', '#000000');
+			textel.textContent = (segId*heatMap_segmentSize/1000).toFixed(1) + "s";
+
+			gr.appendChild(textel);
+			c.appendChild(gr);
 		}
+
+		// each segment has little rectangle assigned on both sides of plot
+		var gr = svgDoc.createElementNS(svgns, 'g');
+		gr.setAttributeNS(null, 'segid', segId);
+		
+		var rect = svgDoc.createElementNS(svgns, 'rect');
+		rect.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
+		rect.setAttributeNS(null, 'y', 16);
+		rect.setAttributeNS(null, 'width', boxWidth);
+		rect.setAttributeNS(null, 'height', boxHeight*0.5);
+		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(250, 250, 250)+';'+
+			'cursor:pointer;'+ 'stroke:#cccccc; stroke-width:'+strokeWidth+'px; stroke-dasharray: 0,'+(boxWidth*2+boxHeight*0.5)+','+boxHeight*0.5);
+
+		gr.appendChild(rect);
+		c.appendChild(gr);
+
+		$(gr).mouseenter(function() {
+			var segId = parseInt($(this).attr('segid'));
+
+			// show tooltip
+			floatingTooltip.show();
+			floatingTooltip.css('margin-top', '-6.5em');
+			floatingTooltip.html('<span class="fname">'+segId*heatMap_segmentSize+'ms</span>');
+		});
+		// mouse leave event
+		$(gr).mouseleave(function() {
+			// hide and reset tooltip
+			floatingTooltip.hide();
+			floatingTooltip.css('margin-top', '');
+		});
+
+		$(gr).click(function() {
+			heatMap_subPlot = 'v';
+			heatMap_subPlotId = parseInt($(this).attr('segid'));
+			pivo_createHeatMap();
+		});
 		
 		var gr = svgDoc.createElementNS(svgns, 'g');
 		gr.setAttributeNS(null, 'segid', segId);
@@ -461,7 +529,7 @@ function pivo_createHeatMap()
 		// create rectangle for time segment
 		var rect = svgDoc.createElementNS(svgns, 'rect');
 		rect.setAttributeNS(null, 'x', (segId - lowSegLimit) * boxWidth);
-		rect.setAttributeNS(null, 'y', 16);
+		rect.setAttributeNS(null, 'y', mainPlotHeight + (heatMap_subPlot === 'h' ? subPlotHeight + plotSpacing : 0 ));
 		rect.setAttributeNS(null, 'width', boxWidth);
 		rect.setAttributeNS(null, 'height', boxHeight*0.5);
 		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(250, 250, 250)+';'+
@@ -483,6 +551,12 @@ function pivo_createHeatMap()
 			// hide and reset tooltip
 			floatingTooltip.hide();
 			floatingTooltip.css('margin-top', '');
+		});
+		
+		$(gr).click(function() {
+			heatMap_subPlot = 'v';
+			heatMap_subPlotId = parseInt($(this).attr('segid'));
+			pivo_createHeatMap();
 		});
 
 		var yoff = 0;
@@ -577,13 +651,18 @@ function pivo_createHeatMap()
 
 		var gr = svgDoc.createElementNS(svgns, 'g');
 		gr.setAttributeNS(null, 'funcid', funcId);
+		
+		var fillColor = pivo_getHexColor(255, 255, 255);
+		// if we selected to display this function in horizontal section, change bg color
+		if (heatMap_subPlot === 'h' && heatMap_subPlotId == funcId)
+			fillColor = pivo_getHexColor(192, 192, 255);
 
 		var rect = svgDoc.createElementNS(svgns, 'rect');
 		rect.setAttributeNS(null, 'x', 0);
 		rect.setAttributeNS(null, 'y', (funcId - yoff) * boxHeight + baseYOffset);
 		rect.setAttributeNS(null, 'width', funcbar_width);
 		rect.setAttributeNS(null, 'height', boxHeight);
-		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, 255, 255)+';'+
+		rect.setAttributeNS(null, 'style',  'fill:'+fillColor+';'+
 			'cursor:pointer;'+ 'stroke:#CCCCCC; stroke-width:'+strokeWidth+'px;');
 
 		var fname = functionTable[funcId].name;
@@ -623,6 +702,158 @@ function pivo_createHeatMap()
 			floatingTooltip.hide();
 			floatingTooltip.css('margin-top', '');
 		});
+
+		$(gr).click(function() {
+			heatMap_subPlot = 'h';
+			heatMap_subPlotId = parseInt($(this).attr('funcid'));
+			pivo_createHeatMap();
+		});
+	}
+
+	// horizontal section of map - time series with some special features
+	if (heatMap_subPlot == 'h')
+	{
+		var subPlotBase = mainPlotHeight + plotSpacing;
+
+		// draw background on funcbar to be able to display percentages clearly
+		var grSub = svgDoc.createElementNS(svgns, 'g');
+		var rect = svgDoc.createElementNS(svgns, 'rect');
+		rect.setAttributeNS(null, 'x', funcbar_width - 40);
+		rect.setAttributeNS(null, 'y', subPlotBase - plotSpacing);
+		rect.setAttributeNS(null, 'width', 40);
+		rect.setAttributeNS(null, 'height', subPlotHeight + plotSpacing*2 + baseYOffset);
+		rect.setAttributeNS(null, 'style',  'fill: #FFFFFF;');
+		grSub.append(rect);
+		cF.appendChild(grSub);
+
+		// draw lines and append percentages to funcbar
+		var gr = svgDoc.createElementNS(svgns, 'g');
+		var grLeft = svgDoc.createElementNS(svgns, 'g');
+		for (var i = 0; i <= 10; i++)
+		{
+			// horizontal line
+			var line = svgDoc.createElementNS(svgns, 'line');
+			line.setAttributeNS(null, 'x1', 0);
+			line.setAttributeNS(null, 'x2', segRange*boxWidth);
+			line.setAttributeNS(null, 'y1', subPlotBase + (i/10.0)*subPlotHeight);
+			line.setAttributeNS(null, 'y2', subPlotBase + (i/10.0)*subPlotHeight);
+			line.setAttributeNS(null, 'style',  'stroke:#cccccc;');
+			gr.appendChild(line);
+
+			// text element - percentages on funcbar
+			var textel = svgDoc.createElementNS(svgns, 'text');
+			textel.setAttributeNS(null, 'x', funcbar_width - 30);
+			textel.setAttributeNS(null, 'y', subPlotBase + (i/10.0)*subPlotHeight + boxHeight*0.2);
+			textel.setAttributeNS(null, 'font-family', 'Courier New');
+			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+			textel.setAttributeNS(null, 'color', '#000000');
+			textel.setAttributeNS(null, 'style', 'cursor:pointer;');
+			textel.textContent = ((10-i)*10.0)+"%";
+			grLeft.appendChild(textel);
+		}
+		c.appendChild(gr);
+		cF.appendChild(grLeft);
+
+		// regression matrix contents
+		var aa = 0, bb = 0, dd = 0, ee = 0, ff = 0;
+
+		var prevHeat = -1;
+		var grVals = svgDoc.createElementNS(svgns, 'g');
+		for (var segId in heatMapHistograms)
+		{
+			if (heatMapHistograms[segId].order < lowSegLimit || heatMapHistograms[segId].order > highSegLimit)
+				continue;
+
+			// extract heat
+			var heat = 0;
+			if (typeof heatMapHistograms[segId].records[heatMap_subPlotId] !== 'undefined')
+				heat = (filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[heatMap_subPlotId]) - minHeat) / distHeat;
+
+			// accumulate sums in linear regression matrices
+			aa += segId*segId;
+			bb += parseInt(segId);
+			dd++;
+			ee += heat*segId;
+			ff += heat;
+
+			// create rectangle for value visualization
+			var rect = svgDoc.createElementNS(svgns, 'rect');
+			rect.setAttributeNS(null, 'x', (segId - lowSegLimit)*boxWidth);
+			rect.setAttributeNS(null, 'y', subPlotBase + subPlotHeight*(1-heat));
+			rect.setAttributeNS(null, 'width', boxWidth);
+			// lower heat - blue small rectangle
+			if (prevHeat > heat || prevHeat < 0)
+			{
+				rect.setAttributeNS(null, 'height', 5);
+				rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(124, 189, 255)+';');
+			}
+			else // greater heat - bigger orange rectangle
+			{
+				rect.setAttributeNS(null, 'height', subPlotHeight*(heat-prevHeat));
+				rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(255, 189, 124)+';');
+			}
+
+			prevHeat = heat;
+			grVals.appendChild(rect);
+		}
+
+		// solve equation system for regression
+		var dbase = aa*dd - bb*bb;
+		var k = (ee*dd-ff*bb)/dbase;
+		var q = (aa*ff-bb*ee)/dbase;
+
+		// generate two points on regression line
+		var point1 = { x: 0, y: subPlotHeight - q*subPlotHeight };
+		var point2 = { x: segRange*boxWidth, y: subPlotHeight - (k*(segRange*subPlotHeight)+q*subPlotHeight) };
+
+		// color - increasing line is red, decreasing is green
+		var col_r = k > 0 ? 192 : 0;
+		var col_g = k < 0 ? 192 : 0;
+		var col_b = 0;
+
+		var textw = 0;
+		var lbase = $('#heat-map-container').parent().width();
+		if (lbase > segRange*boxWidth)
+			lbase = segRange*boxWidth;
+
+		// draw regression line
+		var gr = svgDoc.createElementNS(svgns, 'g');
+		var line = svgDoc.createElementNS(svgns, 'line');
+		line.setAttributeNS(null, 'x1', point1.x);
+		line.setAttributeNS(null, 'x2', point2.x);
+		line.setAttributeNS(null, 'y1', subPlotBase + point1.y);
+		line.setAttributeNS(null, 'y2', subPlotBase + point2.y);
+		line.setAttributeNS(null, 'style', 'stroke:'+pivo_getHexColor(col_r, col_g, col_b)+'; stroke-width:3px;');
+		gr.appendChild(line);
+		c.appendChild(gr);
+
+		// print texts on every segment of plot
+		for (var ix = 0; ix < segRange*boxWidth; ix += lbase)
+		{
+			var gr = svgDoc.createElementNS(svgns, 'g');
+
+			var textel = svgDoc.createElementNS(svgns, 'text');
+			textel.setAttributeNS(null, 'x', ix - textw);
+			textel.setAttributeNS(null, 'y', subPlotBase - boxHeight*0.3);
+			textel.setAttributeNS(null, 'font-family', 'Courier New');
+			textel.setAttributeNS(null, 'font-size', boxHeight*0.7);
+			textel.setAttributeNS(null, 'color', '#000000');
+			textel.setAttributeNS(null, 'style', 'position:fixed;');
+			textel.textContent = "y = "+k+"*x "+(q > 0 ? "+ " : "- ")+Math.abs(q);
+
+			gr.appendChild(textel);
+			c.appendChild(gr);
+
+			// for the first time, save text width for further texts to be moved properly
+			if (textw == 0)
+			{
+				textw = textel.getComputedTextLength();
+				textel.setAttributeNS(null, 'x', lbase - textel.getComputedTextLength() - 10);
+				ix = lbase;
+			}
+		}
+
+		c.appendChild(grVals);
 	}
 }
 

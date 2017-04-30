@@ -123,7 +123,7 @@ function pivo_createFlatView()
 			filterConditions.push({ 'type': type, 'op': op, 'value': value });
 	});
 
-	$.each($('.flatview tbody tr'), function(i,e) {
+	$.each($('#flatview-main tbody tr'), function(i,e) {
 		var passed = true;
 
 		for (var j in filterConditions)
@@ -141,19 +141,19 @@ function pivo_createFlatView()
 			$(e).hide();
 	});
 
-	$('.flatview th.sort-float').data('sortBy', function(th, td, tablesort) {
+	$('#flatview-main th.sort-float').data('sortBy', function(th, td, tablesort) {
 		return parseFloat(td.text());
 	});
-	$('.flatview th.sort-int').data('sortBy', function(th, td, tablesort) {
+	$('#flatview-main th.sort-int').data('sortBy', function(th, td, tablesort) {
 		return parseInt(td.text(), 10);
 	});
-	$('.flatview th.sort-string').data('sortBy', function(th, td, tablesort) {
+	$('#flatview-main th.sort-string').data('sortBy', function(th, td, tablesort) {
 		return td.text();
 	});
-	$('.flatview').tablesort();
+	$('#flatview-main').tablesort();
 					
-	$('.flatview th').click(function() {
-		$('.flatview th').removeClass('sorted-by');
+	$('#flatview-main th').click(function() {
+		$('#flatview-main th').removeClass('sorted-by');
 		$(this).addClass('sorted-by');
 	});
 }
@@ -487,6 +487,11 @@ function pivo_createHeatMap()
 			c.appendChild(gr);
 		}
 
+		var fillColor = pivo_getHexColor(250, 250, 250);
+		// if we selected to display this function in horizontal section, change bg color
+		if (heatMap_subPlot === 'v' && heatMap_subPlotId == segId)
+			fillColor = pivo_getHexColor(96, 96, 255);
+
 		// each segment has little rectangle assigned on both sides of plot
 		var gr = svgDoc.createElementNS(svgns, 'g');
 		gr.setAttributeNS(null, 'segid', segId);
@@ -496,7 +501,7 @@ function pivo_createHeatMap()
 		rect.setAttributeNS(null, 'y', 16);
 		rect.setAttributeNS(null, 'width', boxWidth);
 		rect.setAttributeNS(null, 'height', boxHeight*0.5);
-		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(250, 250, 250)+';'+
+		rect.setAttributeNS(null, 'style',  'fill:'+fillColor+';'+
 			'cursor:pointer;'+ 'stroke:#cccccc; stroke-width:'+strokeWidth+'px; stroke-dasharray: 0,'+(boxWidth*2+boxHeight*0.5)+','+boxHeight*0.5);
 
 		gr.appendChild(rect);
@@ -532,7 +537,7 @@ function pivo_createHeatMap()
 		rect.setAttributeNS(null, 'y', mainPlotHeight + (heatMap_subPlot === 'h' ? subPlotHeight + plotSpacing : 0 ));
 		rect.setAttributeNS(null, 'width', boxWidth);
 		rect.setAttributeNS(null, 'height', boxHeight*0.5);
-		rect.setAttributeNS(null, 'style',  'fill:'+pivo_getHexColor(250, 250, 250)+';'+
+		rect.setAttributeNS(null, 'style',  'fill:'+fillColor+';'+
 			'cursor:pointer;'+ 'stroke:#cccccc; stroke-width:'+strokeWidth+'px; stroke-dasharray: 0,'+(boxWidth*2+boxHeight*0.5)+','+boxHeight*0.5);
 
 		gr.appendChild(rect);
@@ -710,6 +715,9 @@ function pivo_createHeatMap()
 		});
 	}
 
+	// clear contents of vertical HTML section
+	$('#heat-map-vertical-section').hide();
+
 	// horizontal section of map - time series with some special features
 	if (heatMap_subPlot == 'h')
 	{
@@ -854,6 +862,63 @@ function pivo_createHeatMap()
 		}
 
 		c.appendChild(grVals);
+	}
+	// vertical section of map - flat view limited to one time segment
+	else if (heatMap_subPlot == 'v')
+	{
+		// clear table body
+		$('#flatview-heatmap-section').find('tbody').html('');
+
+		// for each function existing..
+		for (var funcId = 0; funcId <= maxFuncId; funcId++)
+		{
+			if (typeof fncBitmap[funcId] == 'undefined' || fncBitmap[funcId] === -1)
+				continue;
+
+			// cut arguments from function
+			var fname = functionTable[funcId].name;
+			var ind = fname.indexOf('(');
+			if (ind > 0)
+				fname = fname.substr(0, ind);
+
+			// extract times from histogram, if available
+			var timeEx = 0;
+			var timeIn = 0;
+			if (typeof heatMapHistograms[heatMap_subPlotId].records[funcId] !== 'undefined')
+			{
+				timeEx = heatMapHistograms[heatMap_subPlotId].records[funcId].profTimeTotalExclusive;
+				timeIn = heatMapHistograms[heatMap_subPlotId].records[funcId].profTimeTotalInclusive;
+			}
+
+			// add row to table
+			$('#flatview-heatmap-section').find('tbody').append('<tr>\
+				<td>'+(100.0 * timeEx / dist).toFixed(2)+'</td>\
+				<td>'+timeEx+'</td>\
+				<td>'+(100.0 * timeIn / distIn).toFixed(2)+'</td>\
+				<td>'+timeIn+'</td>\
+				<td class="nametd"><div class="tdfulltop padded">'+fname+'</div><div class="tdfill func_bg_'+functionTable[funcId].type+'" style="width: '+(100.0 * timeEx / dist)+'%;"></div></td>\
+			</tr>');
+		}
+
+		$('#heat-map-vertical-section').show();
+
+		// build sorters for jQuery sortable plugin
+
+		$('#flatview-heatmap-section th.sort-float').data('sortBy', function(th, td, tablesort) {
+			return parseFloat(td.text());
+		});
+		$('#flatview-heatmap-section th.sort-int').data('sortBy', function(th, td, tablesort) {
+			return parseInt(td.text(), 10);
+		});
+		$('#flatview-heatmap-section th.sort-string').data('sortBy', function(th, td, tablesort) {
+			return td.text();
+		});
+		$('#flatview-heatmap-section').tablesort().data('tablesort').sort($('#flatview-heatmap-section th.sorted-by'), 'desc');
+
+		$('#flatview-heatmap-section th').click(function() {
+			$('#flatview-heatmap-section th').removeClass('sorted-by');
+			$(this).addClass('sorted-by');
+		});
 	}
 }
 

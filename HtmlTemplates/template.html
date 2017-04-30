@@ -121,7 +121,7 @@ $(document).ready(function() {
 				<button type="button" class="right" onclick="pivo_createFlatView();">PROCEED</button>
 				
 			</div>
-			<table class="flatview">
+			<table class="flatview" id="flatview-main">
 				<thead>
 					<tr>
 						<th class="sort-float sorted-by"><#VALUE PROFILING_UNIT_TITLE#> [%]</th>
@@ -338,6 +338,22 @@ $(document).ready(function() {
 					<svg id="heat-map-target" style="width:100%;">
 					</svg>
 				</div>
+			</div>
+			<div id="heat-map-vertical-section" style="width: 90%; margin: auto; height: auto; display: none;">
+				<table class="flatview" id="flatview-heatmap-section">
+					<thead>
+						<tr>
+							<th class="sort-float sorted-by"><#VALUE PROFILING_UNIT_TITLE#> [%]</th>
+							<th class="sort-float"><#VALUE PROFILING_UNIT_TITLE#> [<#VALUE PROFILING_UNIT_SHORT#>]</th>
+							<th class="sort-float">Inclusive&nbsp;<#VALUE PROFILING_UNIT_TITLE_SUB#> [%]</th>
+							<th class="sort-float">Inclusive&nbsp;<#VALUE PROFILING_UNIT_TITLE_SUB#> [<#VALUE PROFILING_UNIT_SHORT#>]</th>
+							<th>Function&nbsp;name</th>
+						</tr>
+					</thead>
+					<tbody>
+
+					</tbody>
+				</table>
 			</div>
 		</div>
 

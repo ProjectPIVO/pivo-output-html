@@ -318,12 +318,14 @@ function pivo_createHeatMap()
 		
 		for (var funcId in heatMapHistograms[segId].records)
 		{
-			if (maxFuncId < funcId)
-				maxFuncId = funcId;
+			funcId = parseInt(funcId);
 
 			// filter out undefined and non-.text functions
 			if (typeof functionTable[funcId] == 'undefined' || (textOnly && functionTable[funcId].type != 't'))
 				continue;
+
+			if (maxFuncId < funcId)
+				maxFuncId = funcId;
 			
 			var curVal = filterSourceFieldPredicates[colPred](heatMapHistograms[segId].records[funcId]);
 
